@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import os
+import json
 import matplotlib.pyplot as plt
 import mpl_toolkits 
 import open3d as o3d
@@ -122,6 +123,15 @@ img_l, img_r = extract_image_frame(720, False, False)
 
 disparity = compute_disparity(img_l, img_r)
 
+with open("../config_files/stereoParameters.json", "r") as file:
+    params = json.load(file)
+
+    baseline = -(params["stereoT"][0])
+    fpx = params["flCamera1"][0]
+
+    print( baseline, fpx)
+    print(baseline * fpx / disparity[694][525])
+
 point_cloud, colors = disparity_to_pointcloud(disparity, Q, img_l)
 
 
@@ -138,4 +148,16 @@ pcd.points = o3d.utility.Vector3dVector(point_cloud)
 pcd.colors = o3d.utility.Vector3dVector(colors / 255.0) # Asegúrate de que el color está normalizado
 
 # Visualizar
-o3d.visualization.draw_geometries([pcd])
+# o3d.visualization.draw_geometries([pcd])
+
+viewer = o3d.visualization.Visualizer()
+viewer.create_window()
+viewer.add_geometry(pcd)
+
+
+
+opt = viewer.get_render_option()
+opt.point_size = 1
+
+viewer.run()
+viewer.destroy_window()
