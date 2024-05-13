@@ -19,8 +19,6 @@ lmbda = 8000.0  # Parámetro lambda usado en el filtrado WLS.
 MATRIX_Q = '../config_files/newStereoMap.xml'
 fs = cv2.FileStorage(MATRIX_Q, cv2.FILE_STORAGE_READ)
 Q = fs.getNode("disparity2depth_matrix").mat()
-
-
 fs.release() 
 
 
@@ -129,9 +127,9 @@ with open("../config_files/stereoParameters.json", "r") as file:
     baseline = -(params["stereoT"][0])
     fpx = params["flCamera1"][0]
 
-    print( baseline, fpx)
-    print(baseline * fpx / disparity[694][525])
-
+    # print( baseline, fpx)
+    # print(baseline * fpx / disparity[694][525])
+    # print(disparity.shape)
 point_cloud, colors = disparity_to_pointcloud(disparity, Q, img_l)
 
 
