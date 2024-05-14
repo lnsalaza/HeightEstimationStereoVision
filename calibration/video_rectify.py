@@ -1,12 +1,13 @@
 import cv2
 import argparse
 import numpy as np
-
+import argparse
+import sys
 
 LEFT_INPUT_VIDEO_PATH = "../videos/original/original_left.avi"
 RIGHT_INPUT_VIDEO_PATH = "../videos/original/original_right.avi"
-LEFT_OUTPUT_VIDEO_PATH = "../videos/rectified/left_rectified.avi"
-RIGHT_OUTPUT_VIDEO_PATH = "../videos/rectified/right_rectified.avi"
+LEFT_OUTPUT_VIDEO_PATH = "../images/left_rectified.avi"
+RIGHT_OUTPUT_VIDEO_PATH = "../images/right_rectified.avi"
 DEFAULT_JSON = "../config_files/stereoParameters.json"
 DEFAULT_XML = "../config_files/newStereoMap.xml"
 
@@ -27,43 +28,54 @@ def get_stereo_map_parameters(file_name):
     fs.release()
     return stereoMapL_x, stereoMapL_y, stereoMapR_x, stereoMapR_y
 
-def calibrate_video(left_video_path, right_video_path , left_output_video, right_output_video, xml_file):
-
+def calibrate_video(left_video_path, right_video_path, left_output_video, right_output_video, xml_file):
     stereoMapL_x, stereoMapL_y, stereoMapR_x, stereoMapR_y = get_stereo_map_parameters(xml_file)
 
     cap_left = cv2.VideoCapture(left_video_path)
-    cap_righ = cv2.VideoCapture(right_video_path)
+    cap_right = cv2.VideoCapture(right_video_path)
+
+    total_frames_left = int(cap_left.get(cv2.CAP_PROP_FRAME_COUNT))
+    total_frames_right = int(cap_right.get(cv2.CAP_PROP_FRAME_COUNT))
+    total_frames = min(total_frames_left, total_frames_right)
 
     width = int(cap_left.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap_left.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
     fps = cap_left.get(cv2.CAP_PROP_FPS)
 
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
-
     out_left = cv2.VideoWriter(left_output_video, fourcc, fps, (width, height))
     out_right = cv2.VideoWriter(right_output_video, fourcc, fps, (width, height))
 
     i = 0
-    while cap_left.isOpened() & cap_righ.isOpened():
-        print(i)
+    while cap_left.isOpened() and cap_right.isOpened():
         ret_l, frame_l = cap_left.read()
-        ret_r, frame_r = cap_righ.read()
+        ret_r, frame_r = cap_right.read()
 
-        if not (ret_l or ret_r):
+        if not (ret_l and ret_r):
             break
 
-        rectified_frame_l = cv2.remap(frame_l, stereoMapL_x, stereoMapL_y, cv2.INTER_LANCZOS4, cv2.BORDER_CONSTANT, 0)
-        rectified_frame_r = cv2.remap(frame_r, stereoMapR_x, stereoMapR_y, cv2.INTER_LANCZOS4, cv2.BORDER_CONSTANT, 0)
+        rectified_frame_l = cv2.remap(frame_l, stereoMapL_x, stereoMapL_y, cv2.INTER_LANCZOS4, cv2.BORDER_CONSTANT)
+        rectified_frame_r = cv2.remap(frame_r, stereoMapR_x, stereoMapR_y, cv2.INTER_LANCZOS4, cv2.BORDER_CONSTANT)
 
         out_left.write(rectified_frame_l)
         out_right.write(rectified_frame_r)
 
-        i=i+1
+        # Update progress
+        progress = int((i / total_frames) * 20)  # 20 segments in the progress bar
+        sys.stdout.write('\r')
+        sys.stdout.write("[%-20s] %d%%" % ('='*progress, 5*progress))
+        sys.stdout.flush()
+
+        i += 1
+
+    # Ensure the final 100% state is reached and displayed
+    sys.stdout.write('\r')
+    sys.stdout.write("[%-20s] 100%%" % ('='*20))
+    sys.stdout.flush()
+    print()  # Move to the next line after progress bar completes
 
     cap_left.release()
-    cap_righ.release()
-
+    cap_right.release()
     out_left.release()
     out_right.release()
 

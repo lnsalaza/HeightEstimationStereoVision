@@ -7,8 +7,8 @@ import mpl_toolkits
 import open3d as o3d
 import numpy as np
 
-LEFT_VIDEO = '../videos/rectified/left_rectified.avi'
-RIGHT_VIDEO = '../videos/rectified/right_rectified.avi'
+LEFT_VIDEO = '../images/left_rectified.avi'
+RIGHT_VIDEO = '../images/right_rectified.avi'
 
 
 # Aplicar el filtro bilateral
@@ -117,7 +117,7 @@ def disparity_to_pointcloud(disparity, Q, image):
 
 # CREACIÒN DE NUBE DE PUNTOS
 
-img_l, img_r = extract_image_frame(720, False, False)
+img_l, img_r = extract_image_frame(6900, False, False)
 
 disparity = compute_disparity(img_l, img_r)
 
@@ -127,9 +127,9 @@ with open("../config_files/stereoParameters.json", "r") as file:
     baseline = -(params["stereoT"][0])
     fpx = params["flCamera1"][0]
 
-    # print( baseline, fpx)
-    # print(baseline * fpx / disparity[694][525])
-    # print(disparity.shape)
+    print( baseline, fpx)
+    print(baseline * fpx / disparity[694][525])
+    print(disparity.shape)
 point_cloud, colors = disparity_to_pointcloud(disparity, Q, img_l)
 
 

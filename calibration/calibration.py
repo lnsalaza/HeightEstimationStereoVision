@@ -46,11 +46,11 @@ def visualize_images(window_name, images, size):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='Procesamiento de imágenes estéreo y rectificación.')
-    parser.add_argument('--json', default=DEFAULT_JSON, help='Archivo JSON con los parámetros de calibración estéreo.')
-    parser.add_argument('--xml', default=DEFAULT_XML, help='Archivo de salida XML para mapas de rectificación estéreo.')
-    parser.add_argument('--img_left', default=IMG_LEFT, help='Nombre del archivo de imagen izquierda.')
-    parser.add_argument('--img_right', default=IMG_RIGHT, help='Nombre del archivo de imagen derecha.')
+    parser = argparse.ArgumentParser(description='Stereo image processing and rectification.')
+    parser.add_argument('--json', default=DEFAULT_JSON, help='JSON file with stereo calibration parameters.')
+    parser.add_argument('--xml', default=DEFAULT_XML, help='Output XML file for stereo rectification maps.')
+    parser.add_argument('--img_left', default=IMG_LEFT, help='Left image file name.')
+    parser.add_argument('--img_right', default=IMG_RIGHT, help='Right image file name.')
     return parser.parse_args()
 
 
