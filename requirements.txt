@@ -1,3 +1,9 @@
+# Calibration and Dense Cloud
 opencv-contrib-python
 matplotlib
 open3d
+
+# KP extraction
+
+# torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 (thisone is using cuda12.1 is for windows)
+ultralytics
