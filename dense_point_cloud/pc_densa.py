@@ -1,14 +1,21 @@
-import cv2
-import numpy as np
 import os
+import cv2
 import json
 import matplotlib.pyplot as plt
-import mpl_toolkits 
+# import mpl_toolkits 
 import open3d as o3d
 import numpy as np
 
-LEFT_VIDEO = '../images/left_rectified.avi'
-RIGHT_VIDEO = '../images/right_rectified.avi'
+
+from ultralytics import YOLO
+
+from ultralytics.utils.plotting import Annotator
+
+
+# LEFT_VIDEO = '../images/left_rectified.avi'
+# RIGHT_VIDEO = '../images/right_rectified.avi'
+LEFT_VIDEO = '../videos/rectified/left_rectified.avi'
+RIGHT_VIDEO = '../videos/rectified/right_rectified.avi'
 
 
 # Aplicar el filtro bilateral
@@ -21,6 +28,76 @@ fs = cv2.FileStorage(MATRIX_Q, cv2.FILE_STORAGE_READ)
 Q = fs.getNode("disparity2depth_matrix").mat()
 fs.release() 
 
+# --------------------------------------------------- KEYPOINTS EXTRACTION -------------------------------------------------------
+
+# Load a model
+model = YOLO('yolov8n-pose.pt')  # load an official model
+source = cv2.imread('../images/image_l.png')
+# Predict with the model
+
+
+# Extract results
+def get_keypoints(source):
+    results = model(source=source, show=False, save = False)[0] 
+    keypoints = np.array(results.keypoints.xy.cpu())
+    return keypoints
+
+def get_roi(source):
+    results = model(source=source, show=False, save = False)[0] 
+    roi = np.array(results.boxes.xyxy.cpu())
+    return roi
+
+
+def aplicar_mascara_imagen(image, mask, coordinates):
+    # Inicializa la máscara como una copia de la máscara original (normalmente toda en ceros)
+    for coor in coordinates:
+        mask[coor[1]:coor[3], coor[0]:coor[2]] = 1  # Pone en 1 los pixeles dentro de los cuadrados definidos
+
+    # Aplica la máscara a la imagen
+    masked_image = cv2.bitwise_and(image, image, mask=mask.astype(np.uint8) * 255)
+
+    return masked_image
+
+# Carga la imagen original y crea una máscara inicial
+
+mask = np.zeros(source.shape[:2], dtype=np.uint8)  # Asegúrate de que la máscara sea del mismo tamaño que la imagen
+
+roi = get_roi(source)
+# Aplica la máscara
+result_image = aplicar_mascara_imagen(source, mask, roi)
+
+# Guarda o muestra la imagen resultante
+cv2.imwrite('imagen_resultante.jpg', result_image)
+
+def save_image(path, image, image_name, grayscale=False):
+    # Asegúrate de que el directorio existe
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+    # Listar todos los archivos en el directorio
+    files = os.listdir(path)
+
+    # Filtrar los archivos que son imágenes (puedes ajustar los tipos según tus necesidades)
+    image_files = [f for f in files if f.endswith(('{image_name}.png', '{image_name}.jpg', '{image_name}.jpeg'))]
+
+    # Determinar el siguiente número para la nueva imagen
+    next_number = len(image_files) + 1
+
+    # Crear el nombre del archivo para la nueva imagen
+    new_image_filename = f'{image_name}_{next_number}.png'
+    # Ruta completa del archivo
+    full_path = os.path.join(path, new_image_filename)
+
+    # Convertir a escala de grises si es necesario
+    if grayscale:
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Guardar la imagen usando cv2.imwrite
+    cv2.imwrite(full_path, image)
+
+
+
+# --------------------------------------------------- DENSE POINT CLOUD ----------------------------------------------------------
 
 def extract_frames(video_path):
     cap = cv2.VideoCapture(video_path)
@@ -108,7 +185,8 @@ def disparity_to_pointcloud(disparity, Q, image):
     points_3D = cv2.reprojectImageTo3D(disparity, Q) 
     colors = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
     
-    mask = disparity > disparity.min() 
+    # mask = disparity > disparity.min() 
+    mask = disparity > 0 
     out_points = points_3D[mask]
     out_colors = colors[mask]
 
@@ -118,8 +196,18 @@ def disparity_to_pointcloud(disparity, Q, image):
 # CREACIÒN DE NUBE DE PUNTOS
 # 250 Y 500
 # img_l, img_r = extract_image_frame(6900, False, False)
+
 # 450 Y 600
-img_l, img_r = extract_image_frame(4710, False, False)
+# img_l, img_r = extract_image_frame(4710, False, False)
+
+# 150 Y 500
+# img_l, img_r = extract_image_frame(3930, False, False)
+
+# 300
+img_l, img_r = extract_image_frame(700, False, False)
+
+
+
 disparity = compute_disparity(img_l, img_r)
 
 with open("../config_files/stereoParameters.json", "r") as file:
@@ -130,15 +218,24 @@ with open("../config_files/stereoParameters.json", "r") as file:
 
     print( baseline, fpx)
     # 250 Y 500
-    # print(baseline * fpx / disparity[140][1110]) #Elihan
-    # print(baseline * fpx / disparity[350][725]) #Loberlly
+    # print(baseline * fpx / disparity[527][1075]) #Elihan
+    # print(baseline * fpx / disparity[471][730]) #Loberlly
 
     # 450 Y 600
-    print(baseline * fpx / disparity[510][890]) #Elihan
-    print(baseline * fpx / disparity[530][1060]) #Loberlly
+    # print(baseline * fpx / disparity[510][890]) #Elihan
+    # print(baseline * fpx / disparity[530][1060]) #Loberlly
+
+    # 150 Y 500
+    # print(baseline * fpx / disparity[315][700]) #Elihan
+    # print(baseline * fpx / disparity[525][1055]) #Loberlly
+
+    # # 300
+    # print(baseline * fpx / disparity[490][830]) #Elihan
+    # print(baseline * fpx / disparity[480][1180]) #Loberlly
 
     print(disparity.shape)
 point_cloud, colors = disparity_to_pointcloud(disparity, Q, img_l)
+
 
 
 
@@ -162,8 +259,6 @@ viewer.add_geometry(pcd)
 
 
 
-opt = viewer.get_render_option()
-opt.point_size = 1
 
 viewer.run()
 viewer.destroy_window()
