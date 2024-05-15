@@ -86,10 +86,9 @@ def main():
     img_right = draw_lines(img_right, 27, parameters['imageSize'])
 
     vis = np.concatenate((img_left, img_right), axis=1)
-    visualize_images('Combined View', vis, (1200, 600))
+    visualize_images('Combined View', vis, (1920, 540))
 
-    img = cv2.imread("../images/image_l.png", 0)
-    visualize_images("left", img, (600,600))
+    
 
     cv2.waitKey(0)
     cv2.destroyAllWindows()

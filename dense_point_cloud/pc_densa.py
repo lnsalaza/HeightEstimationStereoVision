@@ -116,9 +116,10 @@ def disparity_to_pointcloud(disparity, Q, image):
 
 
 # CREACIÒN DE NUBE DE PUNTOS
-
-img_l, img_r = extract_image_frame(6900, False, False)
-
+# 250 Y 500
+# img_l, img_r = extract_image_frame(6900, False, False)
+# 450 Y 600
+img_l, img_r = extract_image_frame(4710, False, False)
 disparity = compute_disparity(img_l, img_r)
 
 with open("../config_files/stereoParameters.json", "r") as file:
@@ -128,7 +129,14 @@ with open("../config_files/stereoParameters.json", "r") as file:
     fpx = params["flCamera1"][0]
 
     print( baseline, fpx)
-    print(baseline * fpx / disparity[694][525])
+    # 250 Y 500
+    # print(baseline * fpx / disparity[140][1110]) #Elihan
+    # print(baseline * fpx / disparity[350][725]) #Loberlly
+
+    # 450 Y 600
+    print(baseline * fpx / disparity[510][890]) #Elihan
+    print(baseline * fpx / disparity[530][1060]) #Loberlly
+
     print(disparity.shape)
 point_cloud, colors = disparity_to_pointcloud(disparity, Q, img_l)
 
