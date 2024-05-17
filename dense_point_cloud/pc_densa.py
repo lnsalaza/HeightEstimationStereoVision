@@ -32,7 +32,6 @@ fs.release()
 
 # Load a model
 model = YOLO('yolov8n-pose.pt')  # load an official model
-source = cv2.imread('../images/image_l.png')
 # Predict with the model
 
 
@@ -48,10 +47,12 @@ def get_roi(source):
     return roi
 
 
-def aplicar_mascara_imagen(image, mask, coordinates):
+def aplicar_mascara_imagen(image, coordinates):
+    mask = np.zeros(image.shape[:2], dtype=np.uint8) 
+
     # Inicializa la máscara como una copia de la máscara original (normalmente toda en ceros)
     for coor in coordinates:
-        mask[coor[1]:coor[3], coor[0]:coor[2]] = 1  # Pone en 1 los pixeles dentro de los cuadrados definidos
+        mask[int(coor[1]):int(coor[3]), int(coor[0]):int(coor[2])] = 1  # Pone en 1 los pixeles dentro de los cuadrados definidos
 
     # Aplica la máscara a la imagen
     masked_image = cv2.bitwise_and(image, image, mask=mask.astype(np.uint8) * 255)
@@ -60,14 +61,6 @@ def aplicar_mascara_imagen(image, mask, coordinates):
 
 # Carga la imagen original y crea una máscara inicial
 
-mask = np.zeros(source.shape[:2], dtype=np.uint8)  # Asegúrate de que la máscara sea del mismo tamaño que la imagen
-
-roi = get_roi(source)
-# Aplica la máscara
-result_image = aplicar_mascara_imagen(source, mask, roi)
-
-# Guarda o muestra la imagen resultante
-cv2.imwrite('imagen_resultante.jpg', result_image)
 
 def save_image(path, image, image_name, grayscale=False):
     # Asegúrate de que el directorio existe
@@ -206,8 +199,6 @@ def disparity_to_pointcloud(disparity, Q, image):
 # 300
 img_l, img_r = extract_image_frame(700, False, False)
 
-
-
 disparity = compute_disparity(img_l, img_r)
 
 with open("../config_files/stereoParameters.json", "r") as file:
@@ -237,6 +228,17 @@ with open("../config_files/stereoParameters.json", "r") as file:
 point_cloud, colors = disparity_to_pointcloud(disparity, Q, img_l)
 
 
+img_l_color = cv2.cvtColor(img_l, cv2.COLOR_GRAY2BGR)
+
+
+roi = get_roi(img_l_color)
+# Aplica la máscara
+result_image = aplicar_mascara_imagen(img_l_color, roi)
+
+# Guarda o muestra la imagen resultante
+save_image("../images/prediction_results/", result_image, "imagen_resultante.jpg", False)
+# cv2.imwrite('imagen_resultante.jpg', result_image)
+
 
 
 # VISUALIZACION
@@ -257,8 +259,8 @@ viewer = o3d.visualization.Visualizer()
 viewer.create_window()
 viewer.add_geometry(pcd)
 
-
-
+opt = viewer.get_render_option()
+opt.point_size = 0.1
 
 viewer.run()
 viewer.destroy_window()

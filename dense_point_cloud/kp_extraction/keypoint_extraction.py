@@ -24,7 +24,9 @@ def get_roi(source):
     return roi
 
 
-def aplicar_mascara_imagen(image, mask, coordinates):
+def aplicar_mascara_imagen(image, coordinates):
+    mask = np.zeros(image.shape[:2], dtype=np.uint8) 
+
     # Inicializa la máscara como una copia de la máscara original (normalmente toda en ceros)
     for coor in coordinates:
         mask[coor[1]:coor[3], coor[0]:coor[2]] = 1  # Pone en 1 los pixeles dentro de los cuadrados definidos
