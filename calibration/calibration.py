@@ -3,6 +3,7 @@ import json
 import argparse
 import numpy as np
 
+# THIS CODE IS USING TO GENERATE THE XML FILE FROM THE JSON FILE
 
 # Definición de variables globales
 DEFAULT_JSON = '../config_files/stereoParameters.json'

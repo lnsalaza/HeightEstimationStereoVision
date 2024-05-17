@@ -12,27 +12,36 @@ from ultralytics import YOLO
 from ultralytics.utils.plotting import Annotator
 
 
-# LEFT_VIDEO = '../images/left_rectified.avi'
-# RIGHT_VIDEO = '../images/right_rectified.avi'
-LEFT_VIDEO = '../videos/rectified/left_rectified.avi'
-RIGHT_VIDEO = '../videos/rectified/right_rectified.avi'
-
-
 # Aplicar el filtro bilateral
 sigma = 1.5  # Parámetro de sigma utilizado para el filtrado WLS.
 lmbda = 8000.0  # Parámetro lambda usado en el filtrado WLS.
 
 
-MATRIX_Q = '../config_files/newStereoMap.xml'
+# NEW
+LEFT_VIDEO = './videos/rectified/distance_left.avi'
+RIGHT_VIDEO = './videos/rectified/distance_right.avi'
+
+MATRIX_Q = './config_files/newStereoMap.xml'
 fs = cv2.FileStorage(MATRIX_Q, cv2.FILE_STORAGE_READ)
 Q = fs.getNode("disparity2depth_matrix").mat()
 fs.release() 
+
+
+#OLD 
+
+# LEFT_VIDEO = "./videos/rectified/distance_left_calibrated.avi"
+# RIGHT_VIDEO = "./videos/rectified/distance_right_calibrated.avi"
+
+# MATRIX_Q = './config_files/old_config/stereoMap.xml'
+# fs = cv2.FileStorage(MATRIX_Q, cv2.FILE_STORAGE_READ)
+# Q = fs.getNode("disparityToDepthMap").mat()
+# fs.release() 
 
 # --------------------------------------------------- KEYPOINTS EXTRACTION -------------------------------------------------------
 
 # Load a model
 model = YOLO('yolov8n-pose.pt')  # load an official model
-# Predict with the model
+
 
 
 # Extract results
@@ -46,7 +55,6 @@ def get_roi(source):
     roi = np.array(results.boxes.xyxy.cpu())
     return roi
 
-
 def aplicar_mascara_imagen(image, coordinates):
     mask = np.zeros(image.shape[:2], dtype=np.uint8) 
 
@@ -59,7 +67,6 @@ def aplicar_mascara_imagen(image, coordinates):
 
     return masked_image
 
-# Carga la imagen original y crea una máscara inicial
 
 
 def save_image(path, image, image_name, grayscale=False):
@@ -71,13 +78,13 @@ def save_image(path, image, image_name, grayscale=False):
     files = os.listdir(path)
 
     # Filtrar los archivos que son imágenes (puedes ajustar los tipos según tus necesidades)
-    image_files = [f for f in files if f.endswith(('{image_name}.png', '{image_name}.jpg', '{image_name}.jpeg'))]
+    image_files = [f for f in files if f.startswith(image_name)]
 
     # Determinar el siguiente número para la nueva imagen
     next_number = len(image_files) + 1
 
     # Crear el nombre del archivo para la nueva imagen
-    new_image_filename = f'{image_name}_{next_number}.png'
+    new_image_filename = f'{image_name}_{next_number}.jpg'
     # Ruta completa del archivo
     full_path = os.path.join(path, new_image_filename)
 
@@ -120,8 +127,8 @@ def extract_image_frame(n_frame, color=True, save = True):
         image_r = cv2.cvtColor(image_r, cv2.COLOR_BGR2GRAY)
 
     if save:
-        cv2.imwrite("../images/image_l.png", image_l)
-        cv2.imwrite("../images/image_r.png", image_r)
+        cv2.imwrite("./images/image_l.png", image_l)
+        cv2.imwrite("./images/image_r.png", image_r)
     return image_l, image_r
 
 
@@ -174,12 +181,21 @@ def compute_disparity(left_image, right_image):
     filtered_disp = np.uint8(filtered_disp)
     return filtered_disp
 
-def disparity_to_pointcloud(disparity, Q, image):
+def disparity_to_pointcloud(disparity, Q, image, custom_mask=None):
     points_3D = cv2.reprojectImageTo3D(disparity, Q) 
     colors = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
     
-    # mask = disparity > disparity.min() 
-    mask = disparity > 0 
+    mask = disparity > 0
+
+    if custom_mask is not None:
+        
+        print(custom_mask.shape)
+        print(custom_mask.size)
+        mask  = custom_mask > 0
+        
+        
+
+    
     out_points = points_3D[mask]
     out_colors = colors[mask]
 
@@ -201,7 +217,7 @@ img_l, img_r = extract_image_frame(700, False, False)
 
 disparity = compute_disparity(img_l, img_r)
 
-with open("../config_files/stereoParameters.json", "r") as file:
+with open("./config_files/stereoParameters.json", "r") as file:
     params = json.load(file)
 
     baseline = -(params["stereoT"][0])
@@ -225,7 +241,7 @@ with open("../config_files/stereoParameters.json", "r") as file:
     # print(baseline * fpx / disparity[480][1180]) #Loberlly
 
     print(disparity.shape)
-point_cloud, colors = disparity_to_pointcloud(disparity, Q, img_l)
+
 
 
 img_l_color = cv2.cvtColor(img_l, cv2.COLOR_GRAY2BGR)
@@ -234,9 +250,16 @@ img_l_color = cv2.cvtColor(img_l, cv2.COLOR_GRAY2BGR)
 roi = get_roi(img_l_color)
 # Aplica la máscara
 result_image = aplicar_mascara_imagen(img_l_color, roi)
+result_image = cv2.cvtColor(result_image, cv2.COLOR_BGR2GRAY)
+
+
+
+point_cloud, colors = disparity_to_pointcloud(disparity, Q, img_l, result_image)
+point_cloud = point_cloud.astype(np.float64)
+print(point_cloud)
 
 # Guarda o muestra la imagen resultante
-save_image("../images/prediction_results/", result_image, "imagen_resultante.jpg", False)
+save_image("./images/prediction_results/", result_image, "imagen_resultante", False)
 # cv2.imwrite('imagen_resultante.jpg', result_image)
 
 
@@ -250,7 +273,18 @@ pcd = o3d.geometry.PointCloud()
 pcd.points = o3d.utility.Vector3dVector(point_cloud)
 
 # Asignar los colores (asegúrate de que están normalizados entre 0 y 1)
-pcd.colors = o3d.utility.Vector3dVector(colors / 255.0) # Asegúrate de que el color está normalizado
+#pcd.colors = o3d.utility.Vector3dVector(colors / 255.0) # Asegúrate de que el color está normalizado
+
+# NEW
+# o3d.io.write_point_cloud("./point_clouds/new_calibration.ply",pcd, print_progress= True)
+
+# OLD
+# o3d.io.write_point_cloud("./point_clouds/old_calibration.ply",pcd, print_progress= True)
+
+
+
+
+
 
 # Visualizar
 # o3d.visualization.draw_geometries([pcd])
