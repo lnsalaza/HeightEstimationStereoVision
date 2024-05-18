@@ -18,10 +18,10 @@ lmbda = 8000.0  # Parámetro lambda usado en el filtrado WLS.
 
 
 # NEW
-LEFT_VIDEO = './videos/rectified/distance_left.avi'
-RIGHT_VIDEO = './videos/rectified/distance_right.avi'
+LEFT_VIDEO = '../videos/rectified/distance_left.avi'
+RIGHT_VIDEO = '../videos/rectified/distance_right.avi'
 
-MATRIX_Q = './config_files/newStereoMap.xml'
+MATRIX_Q = '../config_files/newStereoMap.xml'
 fs = cv2.FileStorage(MATRIX_Q, cv2.FILE_STORAGE_READ)
 Q = fs.getNode("disparity2depth_matrix").mat()
 fs.release() 
@@ -29,10 +29,10 @@ fs.release()
 
 #OLD 
 
-# LEFT_VIDEO = "./videos/rectified/distance_left_calibrated.avi"
-# RIGHT_VIDEO = "./videos/rectified/distance_right_calibrated.avi"
+# LEFT_VIDEO = "../videos/rectified/distance_left_calibrated.avi"
+# RIGHT_VIDEO = "../videos/rectified/distance_right_calibrated.avi"
 
-# MATRIX_Q = './config_files/old_config/stereoMap.xml'
+# MATRIX_Q = '../config_files/old_config/stereoMap.xml'
 # fs = cv2.FileStorage(MATRIX_Q, cv2.FILE_STORAGE_READ)
 # Q = fs.getNode("disparityToDepthMap").mat()
 # fs.release() 
@@ -127,12 +127,15 @@ def extract_image_frame(n_frame, color=True, save = True):
         image_r = cv2.cvtColor(image_r, cv2.COLOR_BGR2GRAY)
 
     if save:
-        cv2.imwrite("./images/image_l.png", image_l)
-        cv2.imwrite("./images/image_r.png", image_r)
+        cv2.imwrite("../images/image_l.png", image_l)
+        cv2.imwrite("../images/image_r.png", image_r)
     return image_l, image_r
 
 
 def compute_disparity(left_image, right_image):
+    left_image = cv2.cvtColor(left_image, cv2.COLOR_BGR2GRAY)
+    right_image = cv2.cvtColor(right_image, cv2.COLOR_BGR2GRAY)
+
     blockSize_var = 7
     P1 = 8 * 3 * (blockSize_var ** 2)  
     P2 = 32 * 3 * (blockSize_var ** 2) 
@@ -183,7 +186,7 @@ def compute_disparity(left_image, right_image):
 
 def disparity_to_pointcloud(disparity, Q, image, custom_mask=None):
     points_3D = cv2.reprojectImageTo3D(disparity, Q) 
-    colors = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
+    #colors = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
     
     mask = disparity > 0
 
@@ -197,7 +200,8 @@ def disparity_to_pointcloud(disparity, Q, image, custom_mask=None):
 
     
     out_points = points_3D[mask]
-    out_colors = colors[mask]
+    #out_colors = colors[mask]
+    out_colors = image[mask]
 
     return out_points, out_colors
 
@@ -213,17 +217,22 @@ def disparity_to_pointcloud(disparity, Q, image, custom_mask=None):
 # img_l, img_r = extract_image_frame(3930, False, False)
 
 # 300
-img_l, img_r = extract_image_frame(700, False, False)
+img_l, img_r = extract_image_frame(700, True, False)
+
+img_l = cv2.imread("../images/calibration_results/image_l.png")
+img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
+
+img_r = cv2.imread("../images/calibration_results/image_r.png")
+img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
 
 disparity = compute_disparity(img_l, img_r)
 
-with open("./config_files/stereoParameters.json", "r") as file:
+with open("../config_files/stereoParameters.json", "r") as file:
     params = json.load(file)
 
     baseline = -(params["stereoT"][0])
     fpx = params["flCamera1"][0]
 
-    print( baseline, fpx)
     # 250 Y 500
     # print(baseline * fpx / disparity[527][1075]) #Elihan
     # print(baseline * fpx / disparity[471][730]) #Loberlly
@@ -240,27 +249,20 @@ with open("./config_files/stereoParameters.json", "r") as file:
     # print(baseline * fpx / disparity[490][830]) #Elihan
     # print(baseline * fpx / disparity[480][1180]) #Loberlly
 
-    print(disparity.shape)
 
 
 
-img_l_color = cv2.cvtColor(img_l, cv2.COLOR_GRAY2BGR)
 
-
-roi = get_roi(img_l_color)
+roi = get_roi(img_l)
 # Aplica la máscara
-result_image = aplicar_mascara_imagen(img_l_color, roi)
-result_image = cv2.cvtColor(result_image, cv2.COLOR_BGR2GRAY)
-
+result_image = aplicar_mascara_imagen(disparity, roi)
+# Guarda o muestra la imagen resultante
+save_image("../images/prediction_results/", result_image, "imagen_resultante", False)
 
 
 point_cloud, colors = disparity_to_pointcloud(disparity, Q, img_l, result_image)
 point_cloud = point_cloud.astype(np.float64)
-print(point_cloud)
 
-# Guarda o muestra la imagen resultante
-save_image("./images/prediction_results/", result_image, "imagen_resultante", False)
-# cv2.imwrite('imagen_resultante.jpg', result_image)
 
 
 
@@ -273,10 +275,10 @@ pcd = o3d.geometry.PointCloud()
 pcd.points = o3d.utility.Vector3dVector(point_cloud)
 
 # Asignar los colores (asegúrate de que están normalizados entre 0 y 1)
-#pcd.colors = o3d.utility.Vector3dVector(colors / 255.0) # Asegúrate de que el color está normalizado
+pcd.colors = o3d.utility.Vector3dVector(colors / 255.0) # Asegúrate de que el color está normalizado
 
 # NEW
-# o3d.io.write_point_cloud("./point_clouds/new_calibration.ply",pcd, print_progress= True)
+o3d.io.write_point_cloud("./point_clouds/new_calibration.ply",pcd, print_progress= True)
 
 # OLD
 # o3d.io.write_point_cloud("./point_clouds/old_calibration.ply",pcd, print_progress= True)

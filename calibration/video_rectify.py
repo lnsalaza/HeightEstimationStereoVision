@@ -6,8 +6,8 @@ import sys
 
 LEFT_INPUT_VIDEO_PATH = "../videos/original/original_left.avi"
 RIGHT_INPUT_VIDEO_PATH = "../videos/original/original_right.avi"
-LEFT_OUTPUT_VIDEO_PATH = "../images/left_rectified.avi"
-RIGHT_OUTPUT_VIDEO_PATH = "../images/right_rectified.avi"
+LEFT_OUTPUT_VIDEO_PATH = "../videos/rectified/left_rectified.avi"
+RIGHT_OUTPUT_VIDEO_PATH = "../videos/rectified/right_rectified.avi"
 DEFAULT_JSON = "../config_files/stereoParameters.json"
 DEFAULT_XML = "../config_files/newStereoMap.xml"
 
