@@ -2,6 +2,7 @@
 opencv-contrib-python
 matplotlib
 open3d
+scikit-learn
 
 # KP extraction
 

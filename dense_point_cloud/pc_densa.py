@@ -46,20 +46,20 @@ model = YOLO('yolov8n-pose.pt')  # load an official model
 
 # Extract results
 def get_keypoints(source):
-    results = model(source=source, show=False, save = False)[0] 
+    results = model(source=source, show=False, save = False, conf=0.85)[0] 
     keypoints = np.array(results.keypoints.xy.cpu())
     return keypoints
 
 def get_roi(source):
-    results = model(source=source, show=False, save = False)[0] 
+    results = model(source=source, show=False, save = False, conf=0.85)[0] 
     roi = np.array(results.boxes.xyxy.cpu())
     return roi
 
-def aplicar_mascara_imagen(image, coordinates):
+def applyROImask(image, roi):
     mask = np.zeros(image.shape[:2], dtype=np.uint8) 
 
     # Inicializa la máscara como una copia de la máscara original (normalmente toda en ceros)
-    for coor in coordinates:
+    for coor in roi:
         mask[int(coor[1]):int(coor[3]), int(coor[0]):int(coor[2])] = 1  # Pone en 1 los pixeles dentro de los cuadrados definidos
 
     # Aplica la máscara a la imagen
@@ -67,6 +67,33 @@ def aplicar_mascara_imagen(image, coordinates):
 
     return masked_image
 
+def applyKeypointsMask(image, keypoints):
+    mask = np.zeros(image.shape[:2], dtype=np.uint8) 
+    centers = []
+
+    # Inicializa la máscara como una copia de la máscara original (normalmente toda en ceros)
+    for person in keypoints:
+        center_x = 0
+        center_y = 0
+        total = 0
+
+        for kp in person:
+            center_x += kp[1]
+            center_y += kp[0]
+            total += 1
+            mask[int(kp[1]),int(kp[0])] = 1  # Pone en 1 los pixeles dentro de los cuadrados definidos
+        
+        center_x = center_x/total
+        center_y = center_y/total
+
+        mask[int(center_x),int(center_y)] = 1
+        centers.append([int(center_x),int(center_y)])
+
+    print(centers)
+    # Aplica la máscara a la imagen
+    masked_image = cv2.bitwise_and(image, image, mask=mask.astype(np.uint8) * 255)
+
+    return masked_image
 
 
 def save_image(path, image, image_name, grayscale=False):
@@ -191,14 +218,11 @@ def disparity_to_pointcloud(disparity, Q, image, custom_mask=None):
     mask = disparity > 0
 
     if custom_mask is not None:
-        
-        print(custom_mask.shape)
-        print(custom_mask.size)
         mask  = custom_mask > 0
-        
+
         
 
-    
+
     out_points = points_3D[mask]
     #out_colors = colors[mask]
     out_colors = image[mask]
@@ -217,7 +241,7 @@ def disparity_to_pointcloud(disparity, Q, image, custom_mask=None):
 # img_l, img_r = extract_image_frame(3930, False, False)
 
 # 300
-img_l, img_r = extract_image_frame(700, True, False)
+#img_l, img_r = extract_image_frame(700, True, False)
 
 img_l = cv2.imread("../images/calibration_results/image_l.png")
 img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
@@ -227,39 +251,49 @@ img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
 
 disparity = compute_disparity(img_l, img_r)
 
+baseline, fpx = 0, 0
+
 with open("../config_files/stereoParameters.json", "r") as file:
     params = json.load(file)
 
     baseline = -(params["stereoT"][0])
     fpx = params["flCamera1"][0]
 
-    # 250 Y 500
-    # print(baseline * fpx / disparity[527][1075]) #Elihan
-    # print(baseline * fpx / disparity[471][730]) #Loberlly
+# 250 Y 500
+# print(baseline * fpx / disparity[527][1075]) #Elihan
+# print(baseline * fpx / disparity[471][730]) #Loberlly
 
-    # 450 Y 600
-    # print(baseline * fpx / disparity[510][890]) #Elihan
-    # print(baseline * fpx / disparity[530][1060]) #Loberlly
+# 450 Y 600
+# print(baseline * fpx / disparity[510][890]) #Elihan
+# print(baseline * fpx / disparity[530][1060]) #Loberlly
 
-    # 150 Y 500
-    # print(baseline * fpx / disparity[315][700]) #Elihan
-    # print(baseline * fpx / disparity[525][1055]) #Loberlly
+# 150 Y 500
+# print(baseline * fpx / disparity[315][700]) #Elihan
+# print(baseline * fpx / disparity[525][1055]) #Loberlly
 
-    # # 300
-    # print(baseline * fpx / disparity[490][830]) #Elihan
-    # print(baseline * fpx / disparity[480][1180]) #Loberlly
+# # 300
+# print(baseline * fpx / disparity[490][830]) #Elihan
+# print(baseline * fpx / disparity[480][1180]) #Loberlly
 
-
-
-
-
-roi = get_roi(img_l)
-# Aplica la máscara
-result_image = aplicar_mascara_imagen(disparity, roi)
-# Guarda o muestra la imagen resultante
-save_image("../images/prediction_results/", result_image, "imagen_resultante", False)
+# 250 Y 500
+print("Depth Elihan: ", str(baseline * fpx / disparity[598][1110])) #Elihan
+print("Depth Loberlly: ", str(baseline * fpx / disparity[567][743])) #Loberlly
 
 
+# Filtra los puntos deseados
+
+# # ROI
+# roi = get_roi(img_l)
+# result_image = applyROImask(disparity, roi)
+# save_image("../images/prediction_results/", result_image, "filtered_roi", False)
+
+# KEYPOINTS
+keypoints = get_keypoints(img_l)
+result_image = applyKeypointsMask(disparity, keypoints)
+save_image("../images/prediction_results/", result_image, "filtered_keypoints", False)
+
+
+# Obtener nube de puntos filtrada
 point_cloud, colors = disparity_to_pointcloud(disparity, Q, img_l, result_image)
 point_cloud = point_cloud.astype(np.float64)
 
@@ -291,12 +325,13 @@ o3d.io.write_point_cloud("./point_clouds/new_calibration.ply",pcd, print_progres
 # Visualizar
 # o3d.visualization.draw_geometries([pcd])
 
-viewer = o3d.visualization.Visualizer()
-viewer.create_window()
-viewer.add_geometry(pcd)
+# viewer = o3d.visualization.Visualizer()
+# viewer.create_window()
+# viewer.add_geometry(pcd)
 
-opt = viewer.get_render_option()
-opt.point_size = 0.1
+# opt = viewer.get_render_option()
+# opt.point_size = 10
 
-viewer.run()
-viewer.destroy_window()
+# viewer.run()
+# viewer.destroy_window()
+
