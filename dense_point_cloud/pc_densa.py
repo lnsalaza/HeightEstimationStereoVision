@@ -1,11 +1,10 @@
 import os
 import cv2
 import json
-import matplotlib.pyplot as plt
-# import mpl_toolkits 
-import open3d as o3d
 import numpy as np
-
+import open3d as o3d
+import matplotlib.pyplot as plt
+from sklearn.cluster import DBSCAN
 
 from ultralytics import YOLO
 
@@ -220,9 +219,6 @@ def disparity_to_pointcloud(disparity, Q, image, custom_mask=None):
     if custom_mask is not None:
         mask  = custom_mask > 0
 
-        
-
-
     out_points = points_3D[mask]
     #out_colors = colors[mask]
     out_colors = image[mask]
@@ -244,9 +240,9 @@ def disparity_to_pointcloud(disparity, Q, image, custom_mask=None):
 #img_l, img_r = extract_image_frame(700, True, False)
 
 img_l = cv2.imread("../images/calibration_results/image_l.png")
-img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
-
 img_r = cv2.imread("../images/calibration_results/image_r.png")
+
+img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
 img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
 
 disparity = compute_disparity(img_l, img_r)
@@ -276,46 +272,88 @@ with open("../config_files/stereoParameters.json", "r") as file:
 # print(baseline * fpx / disparity[480][1180]) #Loberlly
 
 # 250 Y 500
-print("Depth Elihan: ", str(baseline * fpx / disparity[598][1110])) #Elihan
-print("Depth Loberlly: ", str(baseline * fpx / disparity[567][743])) #Loberlly
+# print("Depth Elihan: ", str(baseline * fpx / disparity[598][1110])) #Elihan
+# print("Depth Loberlly: ", str(baseline * fpx / disparity[567][743])) #Loberlly
 
 
 # Filtra los puntos deseados
+
 
 # # ROI
 # roi = get_roi(img_l)
 # result_image = applyROImask(disparity, roi)
 # save_image("../images/prediction_results/", result_image, "filtered_roi", False)
+# eps, min_samples = 10, 100
 
 # KEYPOINTS
 keypoints = get_keypoints(img_l)
 result_image = applyKeypointsMask(disparity, keypoints)
 save_image("../images/prediction_results/", result_image, "filtered_keypoints", False)
-
+eps, min_samples = 50, 6
 
 # Obtener nube de puntos filtrada
 point_cloud, colors = disparity_to_pointcloud(disparity, Q, img_l, result_image)
 point_cloud = point_cloud.astype(np.float64)
 
+# OBTENCION DE CENTROIDES Y VISUALIZACION
 
+# Aplicar DBSCAN para encontrar clusters
+db = DBSCAN(eps=eps, min_samples=min_samples).fit(point_cloud)
+labels = db.labels_
+
+# Obtener el número de clusters (excluyendo el ruido si lo hay)
+unique_labels = set(labels)
+if -1 in unique_labels:
+    unique_labels.remove(-1)  # Remover la etiqueta de ruido si está presente
+
+if not unique_labels:
+    print("No hay clusters.")
+else:
+    # Crear una lista para almacenar los centroides
+    centroids = []
+
+    # Procesar cada cluster
+    for label in unique_labels:
+        cluster_points = point_cloud[labels == label]
+        centroid = np.mean(cluster_points, axis=0)
+        centroids.append(centroid)
+        print("z = ", str(centroid[2]))
+
+    print(centroids)
+    # Crear una nube de puntos para los centroides
+    centroid_points = np.array(centroids)
+    centroid_cloud = o3d.geometry.PointCloud()
+    centroid_cloud.points = o3d.utility.Vector3dVector(centroid_points)
+
+    # Asignar un color distintivo a cada centroide (por ejemplo, rojo)
+    centroid_colors = np.tile([[1, 0, 0]], (len(centroids), 1))  # Rojo
+    centroid_cloud.colors = o3d.utility.Vector3dVector(centroid_colors)
+
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(point_cloud)
+    colors = np.ones_like(point_cloud) * [0, 0, 0]  # Blanco
+    pcd.colors = o3d.utility.Vector3dVector(colors)
+
+    # Visualizar la nube de puntos y los centroides
+    o3d.visualization.draw_geometries([pcd, centroid_cloud])
 
 
 # VISUALIZACION
 
-# Crear un objeto de nube de puntos Open3D
-pcd = o3d.geometry.PointCloud()
+# # Crear un objeto de nube de puntos Open3D
+# pcd = o3d.geometry.PointCloud()
 
-# Asignar las posiciones de los puntos
-pcd.points = o3d.utility.Vector3dVector(point_cloud)
+# # Asignar las posiciones de los puntos
+# pcd.points = o3d.utility.Vector3dVector(point_cloud)
 
-# Asignar los colores (asegúrate de que están normalizados entre 0 y 1)
-pcd.colors = o3d.utility.Vector3dVector(colors / 255.0) # Asegúrate de que el color está normalizado
+# # Asignar los colores (asegúrate de que están normalizados entre 0 y 1)
+# pcd.colors = o3d.utility.Vector3dVector(colors / 255.0) # Asegúrate de que el color está normalizado
 
-# NEW
-o3d.io.write_point_cloud("./point_clouds/new_calibration.ply",pcd, print_progress= True)
+# # NEW
+# o3d.io.write_point_cloud("./point_clouds/new_calibration.ply",pcd, print_progress= True)
 
-# OLD
-# o3d.io.write_point_cloud("./point_clouds/old_calibration.ply",pcd, print_progress= True)
+# # OLD
+# # o3d.io.write_point_cloud("./point_clouds/old_calibration.ply",pcd, print_progress= True)
 
 
 
