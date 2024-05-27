@@ -351,7 +351,7 @@ def save_dense_point_cloud(point_cloud, colors, base_filename):
     save_point_cloud(point_cloud, colors, dense_filename)
 
 # Flujo principal
-camera_type, situation = 'new', '250_500'
+camera_type, situation = 'new', '150_front'
 (img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
 img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
 img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
@@ -370,5 +370,5 @@ base_filename = f"./point_clouds/{camera_type}_calibration_{situation}"
 save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
 
 # Generar nube de puntos con filtrado y aplicar DBSCAN
-point_cloud, colors, eps, min_samples = generate_filtered_point_cloud(img_l, disparity, Q, use_roi=True)
+point_cloud, colors, eps, min_samples = generate_filtered_point_cloud(img_l, disparity, Q, use_roi=False)
 process_point_cloud(point_cloud, eps, min_samples, base_filename)
