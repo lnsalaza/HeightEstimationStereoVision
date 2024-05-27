@@ -15,26 +15,80 @@ from ultralytics.utils.plotting import Annotator
 sigma = 1.5  # Parámetro de sigma utilizado para el filtrado WLS.
 lmbda = 8000.0  # Parámetro lambda usado en el filtrado WLS.
 
+# Definición de los videos y matrices de configuración
+camera_configs = {
+    'new': {
+        'LEFT_VIDEO': '../videos/rectified/distance_left.avi',
+        'RIGHT_VIDEO': '../videos/rectified/distance_right.avi',
+        'MATRIX_Q': '../config_files/newStereoMap.xml',
+        'disparity_to_depth_map': 'disparity2depth_matrix'
+    },
+    'old': {
+        'LEFT_VIDEO': '../videos/rectified/distance_left_calibrated.avi',
+        'RIGHT_VIDEO': '../videos/rectified/distance_right_calibrated.avi',
+        'MATRIX_Q': '../config_files/old_config/stereoMap.xml',
+        'disparity_to_depth_map': 'disparityToDepthMap'
+    }
+}
 
-# NEW
-LEFT_VIDEO = '../videos/rectified/distance_left.avi'
-RIGHT_VIDEO = '../videos/rectified/distance_right.avi'
 
-MATRIX_Q = '../config_files/newStereoMap.xml'
-fs = cv2.FileStorage(MATRIX_Q, cv2.FILE_STORAGE_READ)
-Q = fs.getNode("disparity2depth_matrix").mat()
-fs.release() 
+situations = {
+    '150_front': 60,
+    '150_bodyside_variant': 150,
+    '150_500': 3930,
+    '200_front': 690,
+    '200_shaking_hands_variant': 750,
+    '200_400_front': 4080,
+    '250_front': 1020,
+    '250_oneback_one_front_variant': 1050,
+    '250_side_variant': 1140,
+    '250_350': 4200,
+    '250_500': 6900,
+    '250_600': 4470,
+    '250_600_perspective_variant': 4590,
+    '300_front': 700,
+    '350_front': 1530,
+    '350_side_variant': 1800,
+    '400_front': 2010,
+    '400_oneside_variant': 2130,
+    '400_120cm_h_variant': 5160,
+    '400_200_sitdown': 6150,
+    '400_200_sitdown_side_variant': 6240,
+    '450_front': 2310,
+    '450_side_variant': 2370,
+    '450_600': 4710,
+    '500_front': 2700,
+    '500_oneside_variant': 2670,
+    '550_front': 3000,
+    '550_oneside_variant': 2940,
+    '600_front': 3240,
+    '600_oneside_variant': 3150
+}
 
 
-#OLD 
+# Función para seleccionar configuración de cámara
+def select_camera_config(camera_type):
+    config = camera_configs[camera_type]
+    LEFT_VIDEO = config['LEFT_VIDEO']
+    RIGHT_VIDEO = config['RIGHT_VIDEO']
+    MATRIX_Q = config['MATRIX_Q']
+    
+    fs = cv2.FileStorage(MATRIX_Q, cv2.FILE_STORAGE_READ)
+    Q = fs.getNode(config['disparity_to_depth_map']).mat()
+    fs.release()
+    
+    return LEFT_VIDEO, RIGHT_VIDEO, Q
 
-# LEFT_VIDEO = "../videos/rectified/distance_left_calibrated.avi"
-# RIGHT_VIDEO = "../videos/rectified/distance_right_calibrated.avi"
+# LEFT_VIDEO, RIGHT_VIDEO, Q = select_camera_config("new")
 
-# MATRIX_Q = '../config_files/old_config/stereoMap.xml'
-# fs = cv2.FileStorage(MATRIX_Q, cv2.FILE_STORAGE_READ)
-# Q = fs.getNode("disparityToDepthMap").mat()
-# fs.release() 
+
+# Función para guardar la nube de puntos
+def save_point_cloud(point_cloud, colors, camera_type, situation):
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(point_cloud)
+    pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)
+    filename = f"./point_clouds/{camera_type}_{situation}.ply"
+    o3d.io.write_point_cloud(filename, pcd, print_progress=True)
 
 # --------------------------------------------------- KEYPOINTS EXTRACTION -------------------------------------------------------
 
@@ -54,7 +108,7 @@ def get_roi(source):
     roi = np.array(results.boxes.xyxy.cpu())
     return roi
 
-def applyROImask(image, roi):
+def apply_roi_mask(image, roi):
     mask = np.zeros(image.shape[:2], dtype=np.uint8) 
 
     # Inicializa la máscara como una copia de la máscara original (normalmente toda en ceros)
@@ -66,15 +120,13 @@ def applyROImask(image, roi):
 
     return masked_image
 
-def applyKeypointsMask(image, keypoints):
+def apply_keypoints_mask(image, keypoints):
     mask = np.zeros(image.shape[:2], dtype=np.uint8) 
     centers = []
 
     # Inicializa la máscara como una copia de la máscara original (normalmente toda en ceros)
     for person in keypoints:
-        center_x = 0
-        center_y = 0
-        total = 0
+        center_x, center_y, total = 0, 0, 0
 
         for kp in person:
             center_x += kp[1]
@@ -125,38 +177,39 @@ def save_image(path, image, image_name, grayscale=False):
 
 # --------------------------------------------------- DENSE POINT CLOUD ----------------------------------------------------------
 
-def extract_frames(video_path):
+def extract_frame(video_path, n_frame):
     cap = cv2.VideoCapture(video_path)
-    frames = []
-    
-    while cap.isOpened():
-        retval, frame = cap.read()
-        if not retval:
-            break
-    
-        frames.append(frame)
-    
+    cap.set(cv2.CAP_PROP_POS_FRAMES, n_frame)
+    retval, frame = cap.read()
     cap.release()
-    return frames
+    if not retval:
+        raise ValueError(f"No se pudo leer el frame {n_frame}")
+    return frame
 
-
-# EXTRACCION DE FRAME UNICO
-def extract_image_frame(n_frame, color=True, save = True):
-    frames_l = extract_frames(LEFT_VIDEO)
-    frames_r = extract_frames(RIGHT_VIDEO)
-
-    image_l = frames_l[n_frame]
-    image_r = frames_r[n_frame]
+# Función para extraer un frame específico de los videos izquierdo y derecho
+def extract_image_frame(LEFT_VIDEO, RIGHT_VIDEO, n_frame, color=True, save=True):
+    image_l = extract_frame(LEFT_VIDEO, n_frame)
+    image_r = extract_frame(RIGHT_VIDEO, n_frame)
 
     if not color:
         image_l = cv2.cvtColor(image_l, cv2.COLOR_BGR2GRAY)
         image_r = cv2.cvtColor(image_r, cv2.COLOR_BGR2GRAY)
 
     if save:
-        cv2.imwrite("../images/image_l.png", image_l)
-        cv2.imwrite("../images/image_r.png", image_r)
+        cv2.imwrite(f"../images/image_l_{n_frame}.png", image_l)
+        cv2.imwrite(f"../images/image_r_{n_frame}.png", image_r)
+    
     return image_l, image_r
 
+# Función para extraer frames según la situación y configuración de cámara
+def extract_situation_frames(camera_type, situation, color=True, save=True):
+    if situation in situations:
+        n_frame = situations[situation]
+        LEFT_VIDEO, RIGHT_VIDEO, Q = select_camera_config(camera_type)
+        return extract_image_frame(LEFT_VIDEO, RIGHT_VIDEO, n_frame, color, save), Q
+    else:
+        raise ValueError("Situación no encontrada en el diccionario.")
+    
 
 def compute_disparity(left_image, right_image):
     left_image = cv2.cvtColor(left_image, cv2.COLOR_BGR2GRAY)
@@ -210,166 +263,112 @@ def compute_disparity(left_image, right_image):
     filtered_disp = np.uint8(filtered_disp)
     return filtered_disp
 
+
+
+
 def disparity_to_pointcloud(disparity, Q, image, custom_mask=None):
     points_3D = cv2.reprojectImageTo3D(disparity, Q) 
-    #colors = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-    
     mask = disparity > 0
 
     if custom_mask is not None:
         mask  = custom_mask > 0
 
     out_points = points_3D[mask]
-    #out_colors = colors[mask]
     out_colors = image[mask]
 
     return out_points, out_colors
 
 
-# CREACIÒN DE NUBE DE PUNTOS
-# 250 Y 500
-# img_l, img_r = extract_image_frame(6900, False, False)
+# CREACIÓN DE NUBE DE PUNTOS
 
-# 450 Y 600
-# img_l, img_r = extract_image_frame(4710, False, False)
 
-# 150 Y 500
-# img_l, img_r = extract_image_frame(3930, False, False)
 
-# 300
-#img_l, img_r = extract_image_frame(700, True, False)
+def apply_dbscan(point_cloud, eps, min_samples):
+    db = DBSCAN(eps=eps, min_samples=min_samples).fit(point_cloud)
+    labels = db.labels_
+    return labels
 
-img_l = cv2.imread("../images/calibration_results/image_l.png")
-img_r = cv2.imread("../images/calibration_results/image_r.png")
+def get_centroids(point_cloud, labels):
+    unique_labels = set(labels)
+    if -1 in unique_labels:
+        unique_labels.remove(-1)
+    if not unique_labels:
+        print("No hay clusters.")
+        return None
+    else:
+        centroids = []
+        for label in unique_labels:
+            cluster_points = point_cloud[labels == label]
+            centroid = np.mean(cluster_points, axis=0)
+            centroids.append(centroid)
+            print("z = ", str(centroid[2]))
+        return np.array(centroids)
 
+def create_point_cloud(points, colors=None):
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = o3d.utility.Vector3dVector(points)
+    if colors is not None:
+        pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)
+    return pcd
+
+def save_point_cloud(point_cloud, colors, filename):
+    pcd = create_point_cloud(point_cloud, colors)
+    o3d.io.write_point_cloud(filename, pcd, print_progress=True)
+
+def process_point_cloud(point_cloud, eps, min_samples, base_filename):
+    labels = apply_dbscan(point_cloud, eps, min_samples)
+    centroids = get_centroids(point_cloud, labels)
+
+    if centroids is not None:
+        original_cloud_colors = np.ones_like(point_cloud) * [0, 0, 255]  # Azul
+        original_filename = f"{base_filename}_original.ply"
+        save_point_cloud(point_cloud, original_cloud_colors, original_filename)
+
+        centroid_colors = np.tile([[255, 0, 0]], (len(centroids), 1))  # Rojo
+        centroid_filename = f"{base_filename}_centroids.ply"
+        save_point_cloud(centroids, centroid_colors, centroid_filename)
+
+def generate_filtered_point_cloud(img_l, disparity, Q, use_roi=True):
+    
+    if use_roi:
+        roi = get_roi(img_l)
+        result_image = apply_roi_mask(disparity, roi)
+        save_image("../images/prediction_results/", result_image, "filtered_roi", False)
+        eps, min_samples = 10, 100
+    else:
+        keypoints = get_keypoints(img_l)
+        result_image = apply_keypoints_mask(disparity, keypoints)
+        save_image("../images/prediction_results/", result_image, "filtered_keypoints", False)
+        eps, min_samples = 50, 6
+
+    point_cloud, colors = disparity_to_pointcloud(disparity, Q, img_l, result_image)
+    point_cloud = point_cloud.astype(np.float64)
+    
+    return point_cloud, colors, eps, min_samples
+
+def save_dense_point_cloud(point_cloud, colors, base_filename):
+    dense_filename = f"{base_filename}_dense.ply"
+    save_point_cloud(point_cloud, colors, dense_filename)
+
+# Flujo principal
+camera_type, situation = 'new', '250_500'
+(img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
 img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
 img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
 
 disparity = compute_disparity(img_l, img_r)
 
-baseline, fpx = 0, 0
-
 with open("../config_files/stereoParameters.json", "r") as file:
     params = json.load(file)
-
     baseline = -(params["stereoT"][0])
     fpx = params["flCamera1"][0]
 
-# 250 Y 500
-# print(baseline * fpx / disparity[527][1075]) #Elihan
-# print(baseline * fpx / disparity[471][730]) #Loberlly
+# Generar nube de puntos densa sin filtrado adicional
+dense_point_cloud, dense_colors = disparity_to_pointcloud(disparity, Q, img_l)
+dense_point_cloud = dense_point_cloud.astype(np.float64)
+base_filename = f"./point_clouds/{camera_type}_calibration_{situation}"
+save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
 
-# 450 Y 600
-# print(baseline * fpx / disparity[510][890]) #Elihan
-# print(baseline * fpx / disparity[530][1060]) #Loberlly
-
-# 150 Y 500
-# print(baseline * fpx / disparity[315][700]) #Elihan
-# print(baseline * fpx / disparity[525][1055]) #Loberlly
-
-# # 300
-# print(baseline * fpx / disparity[490][830]) #Elihan
-# print(baseline * fpx / disparity[480][1180]) #Loberlly
-
-# 250 Y 500
-# print("Depth Elihan: ", str(baseline * fpx / disparity[598][1110])) #Elihan
-# print("Depth Loberlly: ", str(baseline * fpx / disparity[567][743])) #Loberlly
-
-
-# Filtra los puntos deseados
-
-
-# # ROI
-# roi = get_roi(img_l)
-# result_image = applyROImask(disparity, roi)
-# save_image("../images/prediction_results/", result_image, "filtered_roi", False)
-# eps, min_samples = 10, 100
-
-# KEYPOINTS
-keypoints = get_keypoints(img_l)
-result_image = applyKeypointsMask(disparity, keypoints)
-save_image("../images/prediction_results/", result_image, "filtered_keypoints", False)
-eps, min_samples = 50, 6
-
-# Obtener nube de puntos filtrada
-point_cloud, colors = disparity_to_pointcloud(disparity, Q, img_l, result_image)
-point_cloud = point_cloud.astype(np.float64)
-
-# OBTENCION DE CENTROIDES Y VISUALIZACION
-
-# Aplicar DBSCAN para encontrar clusters
-db = DBSCAN(eps=eps, min_samples=min_samples).fit(point_cloud)
-labels = db.labels_
-
-# Obtener el número de clusters (excluyendo el ruido si lo hay)
-unique_labels = set(labels)
-if -1 in unique_labels:
-    unique_labels.remove(-1)  # Remover la etiqueta de ruido si está presente
-
-if not unique_labels:
-    print("No hay clusters.")
-else:
-    # Crear una lista para almacenar los centroides
-    centroids = []
-
-    # Procesar cada cluster
-    for label in unique_labels:
-        cluster_points = point_cloud[labels == label]
-        centroid = np.mean(cluster_points, axis=0)
-        centroids.append(centroid)
-        print("z = ", str(centroid[2]))
-
-    print(centroids)
-    # Crear una nube de puntos para los centroides
-    centroid_points = np.array(centroids)
-    centroid_cloud = o3d.geometry.PointCloud()
-    centroid_cloud.points = o3d.utility.Vector3dVector(centroid_points)
-
-    # Asignar un color distintivo a cada centroide (por ejemplo, rojo)
-    centroid_colors = np.tile([[1, 0, 0]], (len(centroids), 1))  # Rojo
-    centroid_cloud.colors = o3d.utility.Vector3dVector(centroid_colors)
-
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(point_cloud)
-    colors = np.ones_like(point_cloud) * [0, 0, 0]  # Blanco
-    pcd.colors = o3d.utility.Vector3dVector(colors)
-
-    # Visualizar la nube de puntos y los centroides
-    o3d.visualization.draw_geometries([pcd, centroid_cloud])
-
-
-# VISUALIZACION
-
-# # Crear un objeto de nube de puntos Open3D
-# pcd = o3d.geometry.PointCloud()
-
-# # Asignar las posiciones de los puntos
-# pcd.points = o3d.utility.Vector3dVector(point_cloud)
-
-# # Asignar los colores (asegúrate de que están normalizados entre 0 y 1)
-# pcd.colors = o3d.utility.Vector3dVector(colors / 255.0) # Asegúrate de que el color está normalizado
-
-# # NEW
-# o3d.io.write_point_cloud("./point_clouds/new_calibration.ply",pcd, print_progress= True)
-
-# # OLD
-# # o3d.io.write_point_cloud("./point_clouds/old_calibration.ply",pcd, print_progress= True)
-
-
-
-
-
-
-# Visualizar
-# o3d.visualization.draw_geometries([pcd])
-
-# viewer = o3d.visualization.Visualizer()
-# viewer.create_window()
-# viewer.add_geometry(pcd)
-
-# opt = viewer.get_render_option()
-# opt.point_size = 10
-
-# viewer.run()
-# viewer.destroy_window()
-
+# Generar nube de puntos con filtrado y aplicar DBSCAN
+point_cloud, colors, eps, min_samples = generate_filtered_point_cloud(img_l, disparity, Q, use_roi=True)
+process_point_cloud(point_cloud, eps, min_samples, base_filename)
