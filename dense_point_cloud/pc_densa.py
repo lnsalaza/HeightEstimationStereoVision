@@ -24,8 +24,8 @@ camera_configs = {
         'disparity_to_depth_map': 'disparity2depth_matrix'
     },
     'old': {
-        'LEFT_VIDEO': '../videos/rectified/distance_left_calibrated.avi',
-        'RIGHT_VIDEO': '../videos/rectified/distance_right_calibrated.avi',
+        'LEFT_VIDEO': '../videos/rectified/old_calibration_distance_left.avi',
+        'RIGHT_VIDEO': '../videos/rectified/old_calibration_distance_right.avi',
         'MATRIX_Q': '../config_files/old_config/stereoMap.xml',
         'disparity_to_depth_map': 'disparityToDepthMap'
     }
@@ -349,26 +349,54 @@ def generate_filtered_point_cloud(img_l, disparity, Q, use_roi=True):
 def save_dense_point_cloud(point_cloud, colors, base_filename):
     dense_filename = f"{base_filename}_dense.ply"
     save_point_cloud(point_cloud, colors, dense_filename)
+###########################################################################################################
+# # Flujo principal
+# camera_type, situation = 'new', '150_front'
+# (img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
+# img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
+# img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
 
-# Flujo principal
-camera_type, situation = 'new', '150_front'
-(img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
-img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
-img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
+# disparity = compute_disparity(img_l, img_r)
 
-disparity = compute_disparity(img_l, img_r)
+# # with open("../config_files/stereoParameters.json", "r") as file:
+# #     params = json.load(file)
+# #     baseline = -(params["stereoT"][0])
+# #     fpx = params["flCamera1"][0]
 
-with open("../config_files/stereoParameters.json", "r") as file:
-    params = json.load(file)
-    baseline = -(params["stereoT"][0])
-    fpx = params["flCamera1"][0]
+# # Generar nube de puntos densa sin filtrado adicional
+# dense_point_cloud, dense_colors = disparity_to_pointcloud(disparity, Q, img_l)
+# dense_point_cloud = dense_point_cloud.astype(np.float64)
+# base_filename = f"./point_clouds/{camera_type}_calibration_{situation}"
+# save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
 
-# Generar nube de puntos densa sin filtrado adicional
-dense_point_cloud, dense_colors = disparity_to_pointcloud(disparity, Q, img_l)
-dense_point_cloud = dense_point_cloud.astype(np.float64)
-base_filename = f"./point_clouds/{camera_type}_calibration_{situation}"
-save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
+# # Generar nube de puntos con filtrado y aplicar DBSCAN
+# point_cloud, colors, eps, min_samples = generate_filtered_point_cloud(img_l, disparity, Q, use_roi=False)
+# process_point_cloud(point_cloud, eps, min_samples, base_filename)
+###############################################################################################################
 
-# Generar nube de puntos con filtrado y aplicar DBSCAN
-point_cloud, colors, eps, min_samples = generate_filtered_point_cloud(img_l, disparity, Q, use_roi=False)
-process_point_cloud(point_cloud, eps, min_samples, base_filename)
+
+
+
+# Flujo principal para todas las situaciones
+camera_type = 'old'
+
+for situation in situations:
+    try:
+        print(f"Procesando situación: {situation}")
+        (img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
+        img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
+        img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
+
+        disparity = compute_disparity(img_l, img_r)
+
+        # Generar nube de puntos densa sin filtrado adicional
+        dense_point_cloud, dense_colors = disparity_to_pointcloud(disparity, Q, img_l)
+        dense_point_cloud = dense_point_cloud.astype(np.float64)
+        base_filename = f"./point_clouds/{camera_type}_{situation}"
+        save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
+
+        # Generar nube de puntos con filtrado y aplicar DBSCAN
+        point_cloud, colors, eps, min_samples = generate_filtered_point_cloud(img_l, disparity, Q, use_roi=False)
+        process_point_cloud(point_cloud, eps, min_samples, base_filename)
+    except Exception as e:
+        print(f"Error procesando {situation}: {e}")
