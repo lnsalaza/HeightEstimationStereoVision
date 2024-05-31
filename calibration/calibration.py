@@ -50,8 +50,8 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Stereo image processing and rectification.')
     parser.add_argument('--json', default=DEFAULT_JSON, help='JSON file with stereo calibration parameters.')
     parser.add_argument('--xml', default=DEFAULT_XML, help='Output XML file for stereo rectification maps.')
-    parser.add_argument('--img_left', default=IMG_LEFT, help='Left image file name.')
-    parser.add_argument('--img_right', default=IMG_RIGHT, help='Right image file name.')
+    parser.add_argument('--img_left', help='Left image file name.')
+    parser.add_argument('--img_right', help='Right image file name.')
     return parser.parse_args()
 
 
@@ -78,21 +78,21 @@ def main():
     }
     save_stereo_maps(args.xml, stereo_maps, rectification[4])
 
-    img_left = cv2.imread(args.img_left)
-    img_right = cv2.imread(args.img_right)
-    img_left = remap_image(img_left, stereo_maps['Left'][0], stereo_maps['Left'][1])
-    img_right = remap_image(img_right, stereo_maps['Right'][0], stereo_maps['Right'][1])
+    if (args.img_left or args.img_right):
 
-    img_left = draw_lines(img_left, 27, parameters['imageSize'])
-    img_right = draw_lines(img_right, 27, parameters['imageSize'])
+        img_left = cv2.imread(args.img_left)
+        img_right = cv2.imread(args.img_right)
+        img_left = remap_image(img_left, stereo_maps['Left'][0], stereo_maps['Left'][1])
+        img_right = remap_image(img_right, stereo_maps['Right'][0], stereo_maps['Right'][1])
 
-    vis = np.concatenate((img_left, img_right), axis=1)
-    visualize_images('Combined View', vis, (1920, 540))
+        img_left = draw_lines(img_left, 27, parameters['imageSize'])
+        img_right = draw_lines(img_right, 27, parameters['imageSize'])
 
-    
-
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+        vis = np.concatenate((img_left, img_right), axis=1)
+        visualize_images('Combined View', vis, (1920, 540))
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+    print("Done...")
 
 if __name__ == '__main__':
     main()

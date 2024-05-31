@@ -1,5 +1,6 @@
 import os
 import cv2
+import csv
 import json
 import numpy as np
 import open3d as o3d
@@ -18,14 +19,14 @@ lmbda = 8000.0  # Parámetro lambda usado en el filtrado WLS.
 # Definición de los videos y matrices de configuración
 camera_configs = {
     'new': {
-        'LEFT_VIDEO': '../videos/rectified/distance_left.avi',
-        'RIGHT_VIDEO': '../videos/rectified/distance_right.avi',
+        'LEFT_VIDEO': '../videos/rectified/left_rectified.avi',
+        'RIGHT_VIDEO': '../videos/rectified/right_rectified.avi',
         'MATRIX_Q': '../config_files/newStereoMap.xml',
         'disparity_to_depth_map': 'disparity2depth_matrix'
     },
     'old': {
-        'LEFT_VIDEO': '../videos/rectified/old_calibration_distance_left.avi',
-        'RIGHT_VIDEO': '../videos/rectified/old_calibration_distance_right.avi',
+        'LEFT_VIDEO': '../videos/rectified/left_rectified_old.avi',
+        'RIGHT_VIDEO': '../videos/rectified/right_rectified_old.avi',
         'MATRIX_Q': '../config_files/old_config/stereoMap.xml',
         'disparity_to_depth_map': 'disparityToDepthMap'
     }
@@ -99,12 +100,12 @@ model = YOLO('yolov8n-pose.pt')  # load an official model
 
 # Extract results
 def get_keypoints(source):
-    results = model(source=source, show=False, save = False, conf=0.85)[0] 
+    results = model(source=source, show=False, save = False, conf=0.8)[0] 
     keypoints = np.array(results.keypoints.xy.cpu())
     return keypoints
 
 def get_roi(source):
-    results = model(source=source, show=False, save = False, conf=0.85)[0] 
+    results = model(source=source, show=False, save = False, conf=0.8)[0] 
     roi = np.array(results.boxes.xyxy.cpu())
     return roi
 
@@ -121,29 +122,16 @@ def apply_roi_mask(image, roi):
     return masked_image
 
 def apply_keypoints_mask(image, keypoints):
-    mask = np.zeros(image.shape[:2], dtype=np.uint8) 
-    centers = []
-
+    mask = np.zeros(image.shape[:2], dtype=np.uint8)
     # Inicializa la máscara como una copia de la máscara original (normalmente toda en ceros)
     for person in keypoints:
-        center_x, center_y, total = 0, 0, 0
-
         for kp in person:
-            center_x += kp[1]
-            center_y += kp[0]
-            total += 1
-            mask[int(kp[1]),int(kp[0])] = 1  # Pone en 1 los pixeles dentro de los cuadrados definidos
-        
-        center_x = center_x/total
-        center_y = center_y/total
-
-        mask[int(center_x),int(center_y)] = 1
-        centers.append([int(center_x),int(center_y)])
-
-    print(centers)
+            y, x = int(kp[1]), int(kp[0])
+            # Verificar si las coordenadas están dentro de los límites de la imagen
+            if 0 <= y - 1 < image.shape[0] and 0 <= x - 1 < image.shape[1]:
+                mask[y - 1, x - 1] = 1  # Pone en 1 los pixeles dentro de los cuadrados definidos
     # Aplica la máscara a la imagen
     masked_image = cv2.bitwise_and(image, image, mask=mask.astype(np.uint8) * 255)
-
     return masked_image
 
 
@@ -327,6 +315,7 @@ def process_point_cloud(point_cloud, eps, min_samples, base_filename):
         centroid_colors = np.tile([[255, 0, 0]], (len(centroids), 1))  # Rojo
         centroid_filename = f"{base_filename}_centroids.ply"
         save_point_cloud(centroids, centroid_colors, centroid_filename)
+    return centroids
 
 def generate_filtered_point_cloud(img_l, disparity, Q, use_roi=True):
     
@@ -349,6 +338,10 @@ def generate_filtered_point_cloud(img_l, disparity, Q, use_roi=True):
 def save_dense_point_cloud(point_cloud, colors, base_filename):
     dense_filename = f"{base_filename}_dense.ply"
     save_point_cloud(point_cloud, colors, dense_filename)
+
+# def save_dataset(centroids):
+#     data = []
+#     true_z = true_z_values
 ###########################################################################################################
 # # Flujo principal
 # camera_type, situation = 'new', '150_front'
@@ -378,11 +371,12 @@ def save_dense_point_cloud(point_cloud, colors, base_filename):
 
 
 # Flujo principal para todas las situaciones
+data = []
 camera_type = 'old'
 
 for situation in situations:
     try:
-        print(f"Procesando situación: {situation}")
+        print(f"\nProcesando situación: {situation}")
         (img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
         img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
         img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
@@ -396,7 +390,33 @@ for situation in situations:
         save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
 
         # Generar nube de puntos con filtrado y aplicar DBSCAN
-        point_cloud, colors, eps, min_samples = generate_filtered_point_cloud(img_l, disparity, Q, use_roi=False)
-        process_point_cloud(point_cloud, eps, min_samples, base_filename)
+        point_cloud, colors, eps, min_samples = generate_filtered_point_cloud(img_l, disparity, Q, use_roi=True)
+        centroids = process_point_cloud(point_cloud, eps, min_samples, base_filename)
+
+        z_estimations = [centroid[2] for centroid in centroids] if centroids is not None else []
+        data.append({
+            "situation": situation,
+            **{f"z_estimation_{i+1}": z for i, z in enumerate(z_estimations)}
+        })
+
+        
     except Exception as e:
         print(f"Error procesando {situation}: {e}")
+
+# Guardar dataset como CSV
+#ataset_path = f"../datasets/z_estimation_{camera_type}_keypoints.csv"
+dataset_path = f"../datasets/z_estimation_{camera_type}_roi.csv"
+if not os.path.exists(os.path.dirname(dataset_path)):
+    os.makedirs(os.path.dirname(dataset_path))
+
+max_z_count = max(len(row) - 1 for row in data) # -1 porque situation no es una columna z_estimation
+
+fieldnames = ["situation"] + [f"z_estimation_{i+1}" for i in range(max_z_count)]
+
+with open(dataset_path, "w", newline='') as csvfile:
+    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+    writer.writeheader()
+    for row in data:
+        writer.writerow(row)
+print(f"Dataset guardado en {dataset_path}")
