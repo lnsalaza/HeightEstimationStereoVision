@@ -58,9 +58,15 @@ def print_centroid_z_coordinates(centroid_file):
 
 # Uso de las funciones
 if __name__ == "__main__":
+
+    # Visualización de la nube de puntos densa
+    dense_pcd_file = "./point_clouds/roi_before_disparity/new_250_oneback_one_front_variant_dense.ply"
+    visualize_dense_point_cloud(dense_pcd_file)
+
+    
     # Visualización de la nube de puntos dispersa
-    sparse_pcd_file = "./point_clouds/old_300_front_original.ply"
-    centroid_file = "./point_clouds/old_300_front_centroids.ply"
+    sparse_pcd_file = "./point_clouds/roi_before_disparity/new_250_oneback_one_front_variant_original.ply"
+    centroid_file = "./point_clouds/roi_before_disparity/new_250_oneback_one_front_variant_centroids.ply"
     
     # Imprimir coordenadas Z de los centroides
     print_centroid_z_coordinates(centroid_file)
@@ -68,6 +74,4 @@ if __name__ == "__main__":
     # Visualizar la nube de puntos dispersa
     visualize_sparse_point_cloud(sparse_pcd_file, centroid_file)
     
-    # Visualización de la nube de puntos densa
-    dense_pcd_file = "./point_clouds/old_300_front_dense.ply"
-    visualize_dense_point_cloud(dense_pcd_file)
+    

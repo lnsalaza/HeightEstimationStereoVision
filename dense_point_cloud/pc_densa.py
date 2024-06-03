@@ -2,6 +2,7 @@ import os
 import cv2
 import csv
 import json
+import torch
 import numpy as np
 import open3d as o3d
 import matplotlib.pyplot as plt
@@ -11,6 +12,10 @@ from ultralytics import YOLO
 
 from ultralytics.utils.plotting import Annotator
 
+torch.cuda.set_device(0)
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(device)
 
 # Aplicar el filtro bilateral
 sigma = 1.5  # Parámetro de sigma utilizado para el filtrado WLS.
@@ -66,6 +71,11 @@ situations = {
     '600_oneside_variant': 3150
 }
 
+# situations = {
+#     '150_front': 60,
+#     '150_500': 3930,
+# }
+
 
 # Función para seleccionar configuración de cámara
 def select_camera_config(camera_type):
@@ -94,7 +104,7 @@ def save_point_cloud(point_cloud, colors, camera_type, situation):
 # --------------------------------------------------- KEYPOINTS EXTRACTION -------------------------------------------------------
 
 # Load a model
-model = YOLO('yolov8n-pose.pt')  # load an official model
+model = YOLO('yolov8n-pose.pt').to(device=device)  # load an official model
 
 
 
@@ -323,7 +333,7 @@ def generate_filtered_point_cloud(img_l, disparity, Q, use_roi=True):
         roi = get_roi(img_l)
         result_image = apply_roi_mask(disparity, roi)
         save_image("../images/prediction_results/", result_image, "filtered_roi", False)
-        eps, min_samples = 10, 100
+        eps, min_samples = 5, 1800
     else:
         keypoints = get_keypoints(img_l)
         result_image = apply_keypoints_mask(disparity, keypoints)
@@ -334,6 +344,25 @@ def generate_filtered_point_cloud(img_l, disparity, Q, use_roi=True):
     point_cloud = point_cloud.astype(np.float64)
     
     return point_cloud, colors, eps, min_samples
+
+def roi_source_point_cloud(img_l, img_r, Q):
+    eps, min_samples = 5, 1800
+
+    roi_left = get_roi(img_l)
+    roi_right = get_roi(img_r)
+
+    result_img_left = apply_roi_mask(img_l, roi_left)
+    result_img_right = apply_roi_mask(img_r, roi_right)
+
+    disparity = compute_disparity(result_img_left, result_img_right)
+
+    filtered_disparity = apply_roi_mask(disparity, roi_left)
+
+    dense_point_cloud, dense_colors = disparity_to_pointcloud(disparity, Q, img_l, filtered_disparity)
+
+    return filtered_disparity, dense_point_cloud, dense_colors, eps, min_samples
+
+
 
 def save_dense_point_cloud(point_cloud, colors, base_filename):
     dense_filename = f"{base_filename}_dense.ply"
@@ -380,17 +409,19 @@ for situation in situations:
         (img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
         img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
         img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
+        
+        disparity, point_cloud, colors, eps, min_samples = roi_source_point_cloud(img_l, img_r, Q)
+        
+        # disparity = compute_disparity(img_l, img_r)
 
-        disparity = compute_disparity(img_l, img_r)
-
-        # Generar nube de puntos densa sin filtrado adicional
+        # # Generar nube de puntos densa sin filtrado adicional
         dense_point_cloud, dense_colors = disparity_to_pointcloud(disparity, Q, img_l)
         dense_point_cloud = dense_point_cloud.astype(np.float64)
-        base_filename = f"./point_clouds/{camera_type}_{situation}"
+        base_filename = f"./point_clouds/old_roi_before_disparity/{camera_type}_{situation}"
         save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
 
-        # Generar nube de puntos con filtrado y aplicar DBSCAN
-        point_cloud, colors, eps, min_samples = generate_filtered_point_cloud(img_l, disparity, Q, use_roi=True)
+        # # Generar nube de puntos con filtrado y aplicar DBSCAN
+        # point_cloud, colors, eps, min_samples = generate_filtered_point_cloud(img_l, disparity, Q, use_roi=True)
         centroids = process_point_cloud(point_cloud, eps, min_samples, base_filename)
 
         z_estimations = [centroid[2] for centroid in centroids] if centroids is not None else []
@@ -404,8 +435,10 @@ for situation in situations:
         print(f"Error procesando {situation}: {e}")
 
 # Guardar dataset como CSV
-#ataset_path = f"../datasets/z_estimation_{camera_type}_keypoints.csv"
-dataset_path = f"../datasets/z_estimation_{camera_type}_roi.csv"
+#dataset_path = f"../datasets/z_estimation_{camera_type}_keypoints.csv"
+#dataset_path = f"../datasets/z_estimation_{camera_type}_roi.csv"
+dataset_path = f"../datasets/z_estimation_{camera_type}_roi_before_disparity.csv"
+
 if not os.path.exists(os.path.dirname(dataset_path)):
     os.makedirs(os.path.dirname(dataset_path))
 
