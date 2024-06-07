@@ -23,13 +23,13 @@ lmbda = 8000.0  # Parámetro lambda usado en el filtrado WLS.
 
 # Definición de los videos y matrices de configuración
 camera_configs = {
-    'new': {
+    'matlab_1': {
         'LEFT_VIDEO': '../videos/rectified/left_rectified.avi',
         'RIGHT_VIDEO': '../videos/rectified/right_rectified.avi',
         'MATRIX_Q': '../config_files/newStereoMap.xml',
         'disparity_to_depth_map': 'disparity2depth_matrix'
     },
-    'old': {
+    'opencv_1': {
         'LEFT_VIDEO': '../videos/rectified/left_rectified_old.avi',
         'RIGHT_VIDEO': '../videos/rectified/right_rectified_old.avi',
         'MATRIX_Q': '../config_files/old_config/stereoMap.xml',
@@ -42,9 +42,11 @@ situations = {
     '150_front': 60,
     '150_bodyside_variant': 150,
     '150_500': 3930,
-    '200_front': 690,
+    '200_front': 720,
     '200_shaking_hands_variant': 750,
     '200_400_front': 4080,
+    '200_400_sitdown': 6150,
+    '200_400_sitdown_side_variant': 6240,
     '250_front': 1020,
     '250_oneback_one_front_variant': 1050,
     '250_side_variant': 1140,
@@ -52,14 +54,12 @@ situations = {
     '250_500': 6900,
     '250_600': 4470,
     '250_600_perspective_variant': 4590,
-    '300_front': 700,
+    '300_front': 1290,
     '350_front': 1530,
     '350_side_variant': 1800,
     '400_front': 2010,
     '400_oneside_variant': 2130,
     '400_120cm_h_variant': 5160,
-    '400_200_sitdown': 6150,
-    '400_200_sitdown_side_variant': 6240,
     '450_front': 2310,
     '450_side_variant': 2370,
     '450_600': 4710,
@@ -240,13 +240,15 @@ def compute_disparity(left_image, right_image):
     # stereo.setMinDisparity(5)
 
     # Calcular el mapa de disparidad de la imagen izquierda a la derecha
-    left_disp = stereo.compute(left_image, right_image).astype(np.float32) / 16.0
+    left_disp = stereo.compute(left_image, right_image)
+    #.astype(np.float32) / 16.0
+
 
     # Crear el matcher derecho basado en el matcher izquierdo para consistencia
     right_matcher = cv2.ximgproc.createRightMatcher(stereo)
 
     # Calcular el mapa de disparidad de la imagen derecha a la izquierda
-    right_disp = right_matcher.compute(right_image, left_image).astype(np.float32) / 16.0
+    right_disp = right_matcher.compute(right_image, left_image)
 
     # Crear el filtro WLS y configurarlo
     wls_filter = cv2.ximgproc.createDisparityWLSFilter(matcher_left=stereo)
@@ -257,8 +259,8 @@ def compute_disparity(left_image, right_image):
     filtered_disp = wls_filter.filter(left_disp, left_image, disparity_map_right=right_disp)
 
     # Normalización para la visualización o procesamiento posterior
-    filtered_disp = cv2.normalize(src=filtered_disp, dst=filtered_disp, beta=0, alpha=255, norm_type=cv2.NORM_MINMAX)
-    filtered_disp = np.uint8(filtered_disp)
+    #filtered_disp = cv2.normalize(src=filtered_disp, dst=filtered_disp, beta=0, alpha=255, norm_type=cv2.NORM_MINMAX)
+    # filtered_disp = np.uint8(filtered_disp)
     return filtered_disp
 
 
@@ -401,7 +403,7 @@ def save_dense_point_cloud(point_cloud, colors, base_filename):
 
 # Flujo principal para todas las situaciones
 data = []
-camera_type = 'new'
+camera_type = 'opencv_1'
 
 for situation in situations:
     try:
@@ -418,10 +420,11 @@ for situation in situations:
         dense_point_cloud, dense_colors = disparity_to_pointcloud(disparity, Q, img_l)
         dense_point_cloud = dense_point_cloud.astype(np.float64)
         base_filename = f"./point_clouds/{camera_type}_keypoint_disparity/{camera_type}_{situation}"
+        # base_filename = f"./point_clouds/test_old/{camera_type}_{situation}"
         save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
 
         # # Generar nube de puntos con filtrado y aplicar DBSCAN
-        point_cloud, colors, eps, min_samples = generate_filtered_point_cloud(img_r, disparity, Q, use_roi=False)
+        point_cloud, colors, eps, min_samples = generate_filtered_point_cloud(img_l, disparity, Q, use_roi=True)
         centroids = process_point_cloud(point_cloud, eps, min_samples, base_filename)
 
         z_estimations = [centroid[2] for centroid in centroids] if centroids is not None else []
@@ -435,7 +438,8 @@ for situation in situations:
         print(f"Error procesando {situation}: {e}")
 
 # Guardar dataset como CSV
-dataset_path = f"../datasets/z_estimation_{camera_type}_keypoints.csv"
+#dataset_path = f"../datasets/z_estimation_{camera_type}_keypoints.csv"
+dataset_path = f"../datasets/z_estimation_{camera_type}_keypoints_no_astype_no_norm.csv"
 # dataset_path = f"../datasets/z_estimation_{camera_type}_roi.csv"
 #dataset_path = f"../datasets/z_estimation_{camera_type}_roi_before_disparity.csv"
 

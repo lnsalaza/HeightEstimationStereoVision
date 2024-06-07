@@ -122,10 +122,11 @@ def print_centroid_z_coordinates(centroid_file):
 
 # Uso de las funciones
 if __name__ == "__main__":
-    folder = "old_keypoints_disparity"
+    folder = "test"
+    # folder = "new_keypoints_disparity"
 
-    situacion = "old_400_front"
-    situacion = "old_600_front"
+    # situacion = "old_400_front"
+    situacion = "new_250_600_perspective_variant"
 
 
 
@@ -142,14 +143,14 @@ if __name__ == "__main__":
     visualize_dense_point_cloud(dense_pcd_file)
 
     
-    # # Visualización de la nube de puntos dispersa
-    # sparse_pcd_file = f"./point_clouds/{folder}/{situacion}_original.ply"
-    # centroid_file = f"./point_clouds/{folder}/{situacion}_centroids.ply"
+    # Visualización de la nube de puntos dispersa
+    sparse_pcd_file = f"./point_clouds/{folder}/{situacion}_original.ply"
+    centroid_file = f"./point_clouds/{folder}/{situacion}_centroids.ply"
     
-    # # Imprimir coordenadas Z de los centroides
-    # print_centroid_z_coordinates(centroid_file)
+    # Imprimir coordenadas Z de los centroides
+    print_centroid_z_coordinates(centroid_file)
     
-    # # Visualizar la nube de puntos dispersa
-    # visualize_sparse_point_cloud(sparse_pcd_file, centroid_file)
+    # Visualizar la nube de puntos dispersa
+    visualize_sparse_point_cloud(sparse_pcd_file, centroid_file)
     
     
