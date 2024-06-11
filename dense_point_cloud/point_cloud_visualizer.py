@@ -122,11 +122,11 @@ def print_centroid_z_coordinates(centroid_file):
 
 # Uso de las funciones
 if __name__ == "__main__":
-    folder = "test"
+    folder = "matlab_2_keypoints_disparity"
     # folder = "new_keypoints_disparity"
 
     # situacion = "old_400_front"
-    situacion = "new_250_600_perspective_variant"
+    situacion = "matlab_2_150_500"
 
 
 

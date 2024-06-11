@@ -8,8 +8,8 @@ import numpy as np
 # Definición de variables globales
 DEFAULT_JSON = '../config_files/stereoParameters.json'
 DEFAULT_XML = '../config_files/newStereoMap.xml'
-IMG_LEFT = '../images/IMG_LEFT.jpg'
-IMG_RIGHT = '../images/IMG_RIGHT.jpg'
+IMG_LEFT = '../images/originals/IMG_LEFT.jpg'
+IMG_RIGHT = '../images/originals/IMG_RIGHT.jpg'
 
 def stereo_rectify(params):
     return cv2.stereoRectify(

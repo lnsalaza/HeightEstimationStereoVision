@@ -1,8 +1,11 @@
 import numpy as np 
 import cv2
  
-left_video = 'left.avi'
-right_video = 'right.avi'
+# left_video = 'left.avi'
+# right_video = 'right.avi'
+
+left_video = '../videos/rectified/left_rectified_matlab_2.avi'
+right_video = '../videos/rectified/right_rectified_matlab_2.avi'
 
 # Check for left and right camera IDs
 # These values can change depending on the system
@@ -74,7 +77,7 @@ while True:
  
   # Capturing and storing left and right camera images
   stereo = cv2.StereoSGBM_create(
-     numDisparities = 57,
+     numDisparities = 68,
         blockSize = 12, 
         minDisparity=12,
 
@@ -82,7 +85,7 @@ while True:
         uniquenessRatio=10,
         speckleWindowSize=0,
         preFilterCap=6,
-        mode= cv2.STEREO_SGBM_MODE_SGBM_3WAY
+        mode= cv2.StereoSGBM_MODE_HH
   )
   retL, imgL= CamL.read()
   retR, imgR= CamR.read()

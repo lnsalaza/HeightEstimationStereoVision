@@ -4,9 +4,9 @@ import pandas as pd
 import matplotlib.pyplot as plt 
 from sklearn.linear_model import LinearRegression
 
+file_name = "z_estimation_opencv_1_keypoint" 
 
-
-df = pd.read_csv("z_estimation_new_keypoints_no_normalized_no_astype.csv")
+df = pd.read_csv(f"{file_name}.csv")
 # df = pd.read_csv("z_estimation_old_keypoints_no_astype_no_norm.csv")
 
 df = pd.DataFrame(df)
@@ -63,26 +63,39 @@ df_variant["error"] = df_variant["z_true"] - df_variant["z_corrected"]
 
 
 print(df_variant)
-# # GRAFICO
+# # GRAFICS
 
-# # plt.figure(figsize=(12, 6))
-# # plt.plot(df['situation'], df['z_true'], label='z True',)
-# # plt.plot(df['situation'], df['z_estimation_1'], label = 'Z Estimation 1')
+###########################################ORIGINAL#####################################
 
-
-# plt.figure(figsize=(12, 6))
-# plt.plot(df['situation'], df['z_true'], label='z True',)
-# plt.plot(df['situation'], df['z_corrected'], label = 'z_corrected')
+plt.figure(figsize=(12, 6))
+plt.plot(df_front['situation'], df_front['z_true'], label='z True',)
+plt.plot(df_front['situation'], df_front['z_estimation_1'], label = 'Z Estimation 1')
 
 
-# plt.xlabel('Situation')
-# plt.ylabel('Depth')
-# plt.xticks(rotation=90)
-# plt.legend()
-# plt.grid(True)
+plt.xlabel('Situation')
+plt.ylabel('Depth')
+plt.xticks(rotation=90)
+plt.legend()
+plt.grid(True)
 
-# plt.tight_layout()
-# #plt.savefig("./graficas/linear_correction.png")
+plt.tight_layout()
+plt.savefig(f"./graficas/original_{file_name}.png")
+
+###########################################CORRECTED#####################################
+
+plt.figure(figsize=(12, 6))
+plt.plot(df_variant['situation'], df_variant['z_true'], label='z True',)
+plt.plot(df_variant['situation'], df_variant['z_corrected'], label = 'z Corrected')
+
+
+plt.xlabel('Situation')
+plt.ylabel('Depth')
+plt.xticks(rotation=90)
+plt.legend()
+plt.grid(True)
+
+plt.tight_layout()
+plt.savefig(f"./graficas/corrected_{file_name}.png")
 
 # #Y = 0.4461*X + 3.445 
 
