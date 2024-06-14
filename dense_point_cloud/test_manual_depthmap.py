@@ -3,8 +3,8 @@ import sys
 import numpy as np
 import cv2 as cv; cv2 = cv
  
-imgL = cv2.imread('image_l.png', 0)
-imgR = cv2.imread('image_r.png', 0)
+imgL = cv2.imread('../images/calibration_results/image_l.png', 0)
+imgR = cv2.imread('../images/calibration_results/image_r.png', 0)
 
 # Aplicar el filtro bilateral
 sigma = 1.5  # Parámetro de sigma utilizado para el filtrado WLS.

@@ -4,8 +4,11 @@ import cv2
 # left_video = 'left.avi'
 # right_video = 'right.avi'
 
-left_video = '../videos/rectified/left_rectified_matlab_2.avi'
-right_video = '../videos/rectified/right_rectified_matlab_2.avi'
+# left_video = '../videos/rectified/left_rectified_old.avi'
+# right_video = '../videos/rectified/right_rectified_old.avi'
+
+left_video = '../videos/rectified/left_rectified.avi'
+right_video = '../videos/rectified/right_rectified.avi'
 
 # Check for left and right camera IDs
 # These values can change depending on the system
@@ -31,20 +34,20 @@ CamR = cv2.VideoCapture(right_video)
  
 def nothing(x):
     pass
- 
+blockSize_var = 7
 cv2.namedWindow('disp',cv2.WINDOW_NORMAL)
 cv2.resizeWindow('disp',600,600)
  
-cv2.createTrackbar('numDisparities','disp',6,17,nothing)
-cv2.createTrackbar('blockSize','disp',5,50,nothing) 
-cv2.createTrackbar('preFilterType','disp',1,1,nothing)
-cv2.createTrackbar('preFilterSize','disp',2,25,nothing)
-cv2.createTrackbar('preFilterCap','disp',5,63,nothing) #5, 62
+cv2.createTrackbar('numDisparities','disp',68,80,nothing)
+cv2.createTrackbar('blockSize','disp',blockSize_var,27,nothing) 
+#cv2.createTrackbar('preFilterType','disp',1,1,nothing)
+#cv2.createTrackbar('preFilterSize','disp',2,25,nothing)
+cv2.createTrackbar('preFilterCap','disp',33,63,nothing) #5, 62
 cv2.createTrackbar('textureThreshold','disp',10,100,nothing)
-cv2.createTrackbar('uniquenessRatio','disp',15,100,nothing)
+cv2.createTrackbar('uniquenessRatio','disp',10,100,nothing)
 cv2.createTrackbar('speckleRange','disp',0,100,nothing)
 cv2.createTrackbar('speckleWindowSize','disp',3,25,nothing)
-cv2.createTrackbar('disp12MaxDiff','disp',5,25,nothing)
+cv2.createTrackbar('disp12MaxDiff','disp',33,66,nothing)
 cv2.createTrackbar('minDisparity','disp',5,50,nothing) #25
  
 
@@ -72,19 +75,22 @@ def extract_frames(video_path):
 
 # Creating an object of StereoBM algorithm
 
+P1 = 8 * 3 * (blockSize_var ** 2)  
+P2 = 32 * 3 * (blockSize_var ** 2) 
 
 while True:
- 
+    
   # Capturing and storing left and right camera images
   stereo = cv2.StereoSGBM_create(
      numDisparities = 68,
-        blockSize = 12, 
-        minDisparity=12,
-
-        disp12MaxDiff=0,
+        blockSize = blockSize_var, 
+        minDisparity=5,
+        P1=P1,
+        P2=P2,
+        disp12MaxDiff=33,
         uniquenessRatio=10,
         speckleWindowSize=0,
-        preFilterCap=6,
+        preFilterCap=33,
         mode= cv2.StereoSGBM_MODE_HH
   )
   retL, imgL= CamL.read()
@@ -113,21 +119,21 @@ while True:
     #           0)
  
     # Updating the parameters based on the trackbar positions
-    numDisparities = cv2.getTrackbarPos('numDisparities','disp')*16 # 16
-    blockSize = cv2.getTrackbarPos('blockSize','disp')*2 + 5 # 53
+    numDisparities = cv2.getTrackbarPos('numDisparities','disp')# 16
+    blockSize_var = cv2.getTrackbarPos('blockSize','disp')# 53
     #preFilterType = cv2.getTrackbarPos('preFilterType','disp') # 1
     #preFilterSize = cv2.getTrackbarPos('preFilterSize','disp')*2 + 5 # 9 
     preFilterCap = cv2.getTrackbarPos('preFilterCap','disp') # 63
     #textureThreshold = cv2.getTrackbarPos('textureThreshold','disp') # 10
     uniquenessRatio = cv2.getTrackbarPos('uniquenessRatio','disp') # 15
     speckleRange = cv2.getTrackbarPos('speckleRange','disp') # 0
-    speckleWindowSize = cv2.getTrackbarPos('speckleWindowSize','disp')*2 # 6
+    speckleWindowSize = cv2.getTrackbarPos('speckleWindowSize','disp') # 6
     disp12MaxDiff = cv2.getTrackbarPos('disp12MaxDiff','disp') # 5
     minDisparity = cv2.getTrackbarPos('minDisparity','disp') # 14
      
     # Setting the updated parameters before computing disparity map
     stereo.setNumDisparities(numDisparities)
-    stereo.setBlockSize(blockSize)
+    stereo.setBlockSize(blockSize_var)
     #stereo.setPreFilterType(preFilterType)
     #stereo.setPreFilterSize(preFilterSize)
     stereo.setPreFilterCap(preFilterCap)

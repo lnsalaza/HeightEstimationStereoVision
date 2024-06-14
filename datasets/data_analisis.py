@@ -4,9 +4,10 @@ import pandas as pd
 import matplotlib.pyplot as plt 
 from sklearn.linear_model import LinearRegression
 
-file_name = "z_estimation_opencv_1_keypoint" 
+# file_name = "z_estimation_opencv_1_keypoint" 
+file_name = "z_estimation_matlab_kp_cm" 
 
-df = pd.read_csv(f"{file_name}.csv")
+df = pd.read_csv(f"steven/{file_name}.csv")
 # df = pd.read_csv("z_estimation_old_keypoints_no_astype_no_norm.csv")
 
 df = pd.DataFrame(df)
@@ -56,36 +57,60 @@ df_variant = df[df["situation"].str.contains("variant")]
 
 lr_model = apply_linear_regresion(df_front, "z_estimation_1", "z_true")
 
-df_variant["z_corrected"] =  lr_model.predict(df_variant[["z_estimation_1"]].values.reshape(-1,1))
+#df_variant["z_corrected"] =  lr_model.predict(df_variant[["z_estimation_1"]].values.reshape(-1,1))
 
 
-df_variant["error"] = df_variant["z_true"] - df_variant["z_corrected"]
+#df_variant["error"] = df_variant["z_true"] - df_variant["z_corrected"]
+
+df["z_corrected"] =  lr_model.predict(df[["z_estimation_1"]].values.reshape(-1,1))
 
 
-print(df_variant)
+df["error"] = df["z_true"] - df["z_corrected"]
+
+
+print(df)
 # # GRAFICS
 
-###########################################ORIGINAL#####################################
+# ###########################################ORIGINAL#####################################
 
-plt.figure(figsize=(12, 6))
-plt.plot(df_front['situation'], df_front['z_true'], label='z True',)
-plt.plot(df_front['situation'], df_front['z_estimation_1'], label = 'Z Estimation 1')
+# plt.figure(figsize=(12, 6))
+# plt.plot(df_front['situation'], df_front['z_true'], label='z True',)
+# plt.plot(df_front['situation'], df_front['z_estimation_1'], label = 'Z Estimation 1')
 
 
-plt.xlabel('Situation')
-plt.ylabel('Depth')
-plt.xticks(rotation=90)
-plt.legend()
-plt.grid(True)
+# plt.xlabel('Situation')
+# plt.ylabel('Depth')
+# plt.xticks(rotation=90)
+# plt.legend()
+# plt.grid(True)
 
-plt.tight_layout()
-plt.savefig(f"./graficas/original_{file_name}.png")
+# plt.tight_layout()
+# # plt.savefig(f"./graficas/original_{file_name}.png")
+# plt.savefig(f"./steven/graficas/original_{file_name}.png")
+
+# ###########################################CORRECTED#####################################
+
+# plt.figure(figsize=(12, 6))
+# plt.plot(df_variant['situation'], df_variant['z_true'], label='z True',)
+# plt.plot(df_variant['situation'], df_variant['z_corrected'], label = 'z Corrected')
+
+
+# plt.xlabel('Situation')
+# plt.ylabel('Depth')
+# plt.xticks(rotation=90)
+# plt.legend()
+# plt.grid(True)
+
+# plt.tight_layout()
+# # plt.savefig(f"./graficas/corrected_{file_name}.png")
+# plt.savefig(f"./steven/graficas/corrected_{file_name}.png")
+
 
 ###########################################CORRECTED#####################################
 
 plt.figure(figsize=(12, 6))
-plt.plot(df_variant['situation'], df_variant['z_true'], label='z True',)
-plt.plot(df_variant['situation'], df_variant['z_corrected'], label = 'z Corrected')
+plt.plot(df['situation'], df['z_true'], label='z True',)
+plt.plot(df['situation'], df['z_corrected'], label = 'z Corrected')
 
 
 plt.xlabel('Situation')
@@ -95,8 +120,5 @@ plt.legend()
 plt.grid(True)
 
 plt.tight_layout()
-plt.savefig(f"./graficas/corrected_{file_name}.png")
-
-# #Y = 0.4461*X + 3.445 
-
-
+# plt.savefig(f"./graficas/corrected_{file_name}.png")
+plt.savefig(f"./steven/graficas/corrected_{file_name}_prueba.png")
