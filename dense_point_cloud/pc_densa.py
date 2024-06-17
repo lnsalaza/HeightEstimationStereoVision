@@ -27,19 +27,40 @@ camera_configs = {
         'LEFT_VIDEO': '../videos/rectified/left_rectified.avi',
         'RIGHT_VIDEO': '../videos/rectified/right_rectified.avi',
         'MATRIX_Q': '../config_files/newStereoMap.xml',
-        'disparity_to_depth_map': 'disparity2depth_matrix'
+        'disparity_to_depth_map': 'disparity2depth_matrix',
+        'numDisparities': 68,
+        'blockSize': 7, 
+        'minDisparity': 5,
+        'disp12MaxDiff': 33,
+        'uniquenessRatio': 10,
+        'preFilterCap': 33,
+        'mode': cv2.StereoSGBM_MODE_HH
     },
     'opencv_1': {
         'LEFT_VIDEO': '../videos/rectified/left_rectified_old.avi',
         'RIGHT_VIDEO': '../videos/rectified/right_rectified_old.avi',
         'MATRIX_Q': '../config_files/old_config/stereoMap.xml',
-        'disparity_to_depth_map': 'disparityToDepthMap'
+        'disparity_to_depth_map': 'disparityToDepthMap',
+        'numDisparities': 52,
+        'blockSize': 10, 
+        'minDisparity': 0,
+        'disp12MaxDiff': 36,
+        'uniquenessRatio': 39,
+        'preFilterCap': 25,
+        'mode': cv2.StereoSGBM_MODE_HH
     },
     'matlab_2': {
         'LEFT_VIDEO': '../videos/rectified/left_rectified_matlab_2.avi',
         'RIGHT_VIDEO': '../videos/rectified/right_rectified_matlab_2.avi',
         'MATRIX_Q': '../config_files/laser_config/including_Y_rotation_random/lyrrStereoMap.xml',
-        'disparity_to_depth_map': 'disparity2depth_matrix'
+        'disparity_to_depth_map': 'disparity2depth_matrix',
+        'numDisparities': 68,
+        'blockSize': 7, 
+        'minDisparity': 5,
+        'disp12MaxDiff': 33,
+        'uniquenessRatio': 10,
+        'preFilterCap': 33,
+        'mode': cv2.StereoSGBM_MODE_HH
     }
 }
 
@@ -215,40 +236,30 @@ def extract_situation_frames(camera_type, situation, color=True, save=True):
         raise ValueError("Situación no encontrada en el diccionario.")
     
 
-def compute_disparity(left_image, right_image):
+def compute_disparity(left_image, right_image, camera_type):
     left_image = cv2.cvtColor(left_image, cv2.COLOR_BGR2GRAY)
     right_image = cv2.cvtColor(right_image, cv2.COLOR_BGR2GRAY)
+    config = camera_configs[camera_type]
 
-    blockSize_var = 7
+    blockSize_var = config['blockSize']
     P1 = 8 * 3 * (blockSize_var ** 2)  
     P2 = 32 * 3 * (blockSize_var ** 2) 
 
     stereo = cv2.StereoSGBM_create(
-        numDisparities = 68,
+        numDisparities = config['numDisparities'],
         blockSize = blockSize_var, 
-        minDisparity=5,
+        minDisparity=config['blockSize'],
         P1=P1,
         P2=P2,
-        disp12MaxDiff=33,
-        uniquenessRatio=10,
-        preFilterCap=33,
-        mode=cv2.StereoSGBM_MODE_HH
+        disp12MaxDiff=config['disp12MaxDiff'],
+        uniquenessRatio=config['uniquenessRatio'],
+        preFilterCap=config['preFilterCap'],
+        mode=config['mode']
     )
-
-    # stereo.setPreFilterType(0)
-    # stereo.setPreFilterSize(7*2+5)
-    # stereo.setPreFilterCap(63)
-    # stereo.setTextureThreshold(10)
-    # stereo.setUniquenessRatio(13)
-    # stereo.setSpeckleRange(2)
-    # stereo.setSpeckleWindowSize(3*2)
-    # stereo.setDisp12MaxDiff(5)
-    # stereo.setMinDisparity(5)
 
     # Calcular el mapa de disparidad de la imagen izquierda a la derecha
     left_disp = stereo.compute(left_image, right_image)
     #.astype(np.float32) / 16.0
-
 
     # Crear el matcher derecho basado en el matcher izquierdo para consistencia
     right_matcher = cv2.ximgproc.createRightMatcher(stereo)
@@ -335,7 +346,7 @@ def process_point_cloud(point_cloud, eps, min_samples, base_filename):
         save_point_cloud(centroids, centroid_colors, centroid_filename)
     return centroids
 
-def generate_filtered_point_cloud(img_l, disparity, Q, use_roi=True):
+def generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True, ):
     
     if use_roi:
         roi = get_roi(img_l)
@@ -346,7 +357,9 @@ def generate_filtered_point_cloud(img_l, disparity, Q, use_roi=True):
         keypoints = get_keypoints(img_l)
         result_image = apply_keypoints_mask(disparity, keypoints)
         save_image("../images/prediction_results/", result_image, "filtered_keypoints", False)
-        eps, min_samples = 50, 6
+
+        eps = 50 if "matlab" in camera_type else 10
+        min_samples = 6
 
     point_cloud, colors = disparity_to_pointcloud(disparity, Q, img_l, result_image)
     point_cloud = point_cloud.astype(np.float64)
@@ -422,16 +435,13 @@ for situation in situations:
         
         #disparity, point_cloud, colors, eps, min_samples = roi_source_point_cloud(img_l, img_r, Q)
         
-        disparity = compute_disparity(img_l, img_r)
+        disparity = compute_disparity(img_l, img_r, camera_type)
 
         # # Generar nube de puntos densa sin filtrado adicional
         dense_point_cloud, dense_colors = disparity_to_pointcloud(disparity, Q, img_l)
         dense_point_cloud = dense_point_cloud.astype(np.float64)
 
-
-        
-
-        base_filename = f"./point_clouds/{camera_type}_{mask_type}_disparity/{camera_type}_{situation}"
+        base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}"
         if not os.path.exists(os.path.dirname(base_filename)):
             os.makedirs(os.path.dirname(base_filename))
 
@@ -439,7 +449,7 @@ for situation in situations:
         save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
 
         # # Generar nube de puntos con filtrado y aplicar DBSCAN
-        point_cloud, colors, eps, min_samples = generate_filtered_point_cloud(img_l, disparity, Q, use_roi=is_roi)
+        point_cloud, colors, eps, min_samples = generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=is_roi)
         centroids = process_point_cloud(point_cloud, eps, min_samples, base_filename)
 
         z_estimations = [centroid[2] for centroid in centroids] if centroids is not None else []
@@ -453,10 +463,10 @@ for situation in situations:
         print(f"Error procesando {situation}: {e}")
 
 # Guardar dataset como CSV
-dataset_path = f"../datasets/z_estimation_{camera_type}_{mask_type}.csv"
-# dataset_path = f"../datasets/z_estimation_{camera_type}_keypoints_no_astype_no_norm.csv"
-# dataset_path = f"../datasets/z_estimation_{camera_type}_roi.csv"
-#dataset_path = f"../datasets/z_estimation_{camera_type}_roi_before_disparity.csv"
+dataset_path = f"../datasets/data/z_estimation_{camera_type}_{mask_type}.csv"
+# dataset_path = f"../datasets/data/z_estimation_{camera_type}_keypoints_no_astype_no_norm.csv"
+# dataset_path = f"../datasets/data/z_estimation_{camera_type}_roi.csv"
+# dataset_path = f"../datasets/data/z_estimation_{camera_type}_roi_before_disparity.csv"
 
 if not os.path.exists(os.path.dirname(dataset_path)):
     os.makedirs(os.path.dirname(dataset_path))

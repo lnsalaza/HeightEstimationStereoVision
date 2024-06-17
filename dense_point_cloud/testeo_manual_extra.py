@@ -7,8 +7,8 @@ import cv2
 # left_video = '../videos/rectified/left_rectified_old.avi'
 # right_video = '../videos/rectified/right_rectified_old.avi'
 
-left_video = '../videos/rectified/left_rectified.avi'
-right_video = '../videos/rectified/right_rectified.avi'
+left_video = '../videos/rectified/left_rectified_old.avi'
+right_video = '../videos/rectified/right_rectified_old.avi'
 
 # Check for left and right camera IDs
 # These values can change depending on the system
@@ -43,10 +43,10 @@ cv2.createTrackbar('blockSize','disp',blockSize_var,27,nothing)
 #cv2.createTrackbar('preFilterType','disp',1,1,nothing)
 #cv2.createTrackbar('preFilterSize','disp',2,25,nothing)
 cv2.createTrackbar('preFilterCap','disp',33,63,nothing) #5, 62
-cv2.createTrackbar('textureThreshold','disp',10,100,nothing)
+#cv2.createTrackbar('textureThreshold','disp',10,100,nothing)
 cv2.createTrackbar('uniquenessRatio','disp',10,100,nothing)
-cv2.createTrackbar('speckleRange','disp',0,100,nothing)
-cv2.createTrackbar('speckleWindowSize','disp',3,25,nothing)
+#cv2.createTrackbar('speckleRange','disp',0,100,nothing)
+#cv2.createTrackbar('speckleWindowSize','disp',3,25,nothing)
 cv2.createTrackbar('disp12MaxDiff','disp',33,66,nothing)
 cv2.createTrackbar('minDisparity','disp',5,50,nothing) #25
  
@@ -126,8 +126,8 @@ while True:
     preFilterCap = cv2.getTrackbarPos('preFilterCap','disp') # 63
     #textureThreshold = cv2.getTrackbarPos('textureThreshold','disp') # 10
     uniquenessRatio = cv2.getTrackbarPos('uniquenessRatio','disp') # 15
-    speckleRange = cv2.getTrackbarPos('speckleRange','disp') # 0
-    speckleWindowSize = cv2.getTrackbarPos('speckleWindowSize','disp') # 6
+    #speckleRange = cv2.getTrackbarPos('speckleRange','disp') # 0
+    #speckleWindowSize = cv2.getTrackbarPos('speckleWindowSize','disp') # 6
     disp12MaxDiff = cv2.getTrackbarPos('disp12MaxDiff','disp') # 5
     minDisparity = cv2.getTrackbarPos('minDisparity','disp') # 14
      
@@ -139,8 +139,8 @@ while True:
     stereo.setPreFilterCap(preFilterCap)
     #stereo.setTextureThreshold(textureThreshold)
     stereo.setUniquenessRatio(uniquenessRatio)
-    stereo.setSpeckleRange(speckleRange)
-    stereo.setSpeckleWindowSize(speckleWindowSize)
+    #stereo.setSpeckleRange(speckleRange)
+    #stereo.setSpeckleWindowSize(speckleWindowSize)
     stereo.setDisp12MaxDiff(disp12MaxDiff)
     stereo.setMinDisparity(minDisparity)
  
