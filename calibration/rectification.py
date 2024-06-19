@@ -131,7 +131,6 @@ if __name__ == "__main__":
     
     # Call the calibration function with command line arguments
     if(args.input_type == 'image'):
-        left, right = calibrate_images(args.input_images_folder, args.output_images_folder, '../config_files/laser_config/including_Y_rotation/iyrStereMap.xml')
-        print(left, right)
+        calibrate_images(args.input_images_folder, args.output_images_folder, '../config_files/laser_config/including_Y_rotation/iyrStereMap.xml')
     else: 
         calibrate_video(args.input_left, args.input_right, args.output_left, args.output_right, args.xml)

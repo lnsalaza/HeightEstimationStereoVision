@@ -1,14 +1,15 @@
 import csv
 import numpy as np
 import pandas as pd
+import joblib
 import matplotlib.pyplot as plt 
 from sklearn.linear_model import LinearRegression
 
-file_name = "z_estimation_opencv_1_keypoint5" 
-# file_name = "z_estimation_matlab_1_keypoint" 
+# file_name = "z_estimation_opencv_1_keypoint5" 
+file_name = "z_estimation_matlab_1_keypoint" 
 # file_name = "z_estimation_matlab_kp_cm" 
 
-df = pd.read_csv(f"data/{file_name}.csv")
+df = pd.read_csv(f"data/newer/{file_name}.csv")
 # df = pd.read_csv(f"steven/{file_name}.csv")
 # df = pd.read_csv("z_estimation_old_keypoints_no_astype_no_norm.csv")
 
@@ -30,6 +31,8 @@ def apply_linear_correction(z_true):
 def lineaRegression(true_values, estimated_values):
     model = LinearRegression()
     model.fit(np.array(estimated_values).reshape(-1,1), np.array(true_values).reshape(-1,1))
+    
+ 
     predicted_values = model.predict(np.array(estimated_values).reshape(-1,1))
     return model, predicted_values
 
@@ -44,6 +47,8 @@ def apply_linear_regresion(df, col_x, col_y):
     modelo = LinearRegression()
     modelo.fit(X,Y)
     modelo.predict(X)
+    filename = f'models/{file_name}_ln_model.pkl'
+    joblib.dump(modelo, filename)
     return modelo
 
 # Función para verificar si una cadena contiene dos números
@@ -75,13 +80,13 @@ def process_dataframe(df):
             col_current = z_columns[i-1]
             col_next = z_columns[i]
             if pd.notna(row[col_next]):
-                new_rows.append({'situation': f"{number1}_{number2}{rest}", 'z_estimation_1': row[col_current], 'z_estimation_2': None})
+                # new_rows.append({'situation': f"{number1}_{number2}{rest}", 'z_estimation_1': row[col_current], 'z_estimation_2': None})
                 new_rows.append({'situation': f"{number2}_{number1}{rest}", 'z_estimation_1': row[col_next], 'z_estimation_2': None})
     
     df_new_rows = pd.DataFrame(new_rows)
     
     # Concatenar las nuevas filas al dataframe original (sin las filas que ya fueron procesadas)
-    df_result = pd.concat([df[~df.index.isin(df_filtered.index)], df_new_rows], ignore_index=True)
+    df_result = pd.concat([df, df_new_rows], ignore_index=True)
     
     return df_result
 

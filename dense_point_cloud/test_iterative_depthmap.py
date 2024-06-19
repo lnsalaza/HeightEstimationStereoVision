@@ -59,8 +59,8 @@ rotated_image_r = rotate_image(right_image, 180)
            
 
 # Save the rotated image
-cv.imwrite("rotated_image_l.jpg", rotate_image(left_image, 180))
-cv.imwrite("rotated_image_r.jpg", rotate_image(right_image, 180))
+cv.imwrite("rotated_image_l.png", rotate_image(left_image, 180))
+cv.imwrite("rotated_image_r.png", rotate_image(right_image, 180))
 
 
 # # Non-Local Means

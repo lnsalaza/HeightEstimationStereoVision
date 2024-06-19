@@ -25,10 +25,7 @@ def visualize_sparse_point_cloud(pcd_file, centroid_file):
     viewer.destroy_window()
 
 def create_mark_lines(width=20, height=10, depth=100, interval=10):
-    # points = [
-    #     [0, 0, 0], [width,0, 0], [0, height, 0], [width, height, 0],
-    #     [0, 0, depth], [width, 0, depth], [0, height, depth], [width, height, depth]
-    # ]
+
 
     points = [
         [-width, -height, 0], [width,-height, 0], [-width, height, 0], [width, height, 0],

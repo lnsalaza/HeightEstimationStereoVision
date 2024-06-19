@@ -91,7 +91,7 @@ while True:
         uniquenessRatio=10,
         speckleWindowSize=0,
         preFilterCap=33,
-        mode= cv2.StereoSGBM_MODE_HH
+        mode= cv2.STEREO_SGBM_MODE_HH
   )
   retL, imgL= CamL.read()
   retR, imgR= CamR.read()

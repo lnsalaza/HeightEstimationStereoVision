@@ -7,6 +7,7 @@ import numpy as np
 import open3d as o3d
 import matplotlib.pyplot as plt
 from sklearn.cluster import DBSCAN
+import keypoint_extraction as kp
 
 from ultralytics import YOLO
 
@@ -22,7 +23,7 @@ sigma = 1.5  # Parámetro de sigma utilizado para el filtrado WLS.
 lmbda = 8000.0  # Parámetro lambda usado en el filtrado WLS.
 
 # Definición de los videos y matrices de configuración
-camera_configs = {
+configs = {
     'matlab_1': {
         'LEFT_VIDEO': '../videos/rectified/left_rectified.avi',
         'RIGHT_VIDEO': '../videos/rectified/right_rectified.avi',
@@ -106,7 +107,7 @@ situations = {
 
 # Función para seleccionar configuración de cámara
 def select_camera_config(camera_type):
-    config = camera_configs[camera_type]
+    config = configs[camera_type]
     LEFT_VIDEO = config['LEFT_VIDEO']
     RIGHT_VIDEO = config['RIGHT_VIDEO']
     MATRIX_Q = config['MATRIX_Q']
@@ -128,48 +129,48 @@ def save_point_cloud(point_cloud, colors, camera_type, situation):
     filename = f"./point_clouds/{camera_type}_{situation}.ply"
     o3d.io.write_point_cloud(filename, pcd, print_progress=True)
 
-# --------------------------------------------------- KEYPOINTS EXTRACTION -------------------------------------------------------
+# # --------------------------------------------------- KEYPOINTS EXTRACTION -------------------------------------------------------
 
-# Load a model
-model = YOLO('yolov8n-pose.pt').to(device=device)  # load an official model
+# # Load a model
+# model = YOLO('yolov8n-pose.pt').to(device=device)  # load an official model
 
 
 
-# Extract results
-def get_keypoints(source):
-    results = model(source=source, show=False, save = False, conf=0.8)[0] 
-    keypoints = np.array(results.keypoints.xy.cpu())
-    return keypoints
+# # Extract results
+# def get_keypoints(source):
+#     results = model(source=source, show=False, save = False, conf=0.85)[0] 
+#     keypoints = np.array(results.keypoints.xy.cpu())
+#     return keypoints
 
-def get_roi(source):
-    results = model(source=source, show=False, save = False, conf=0.8)[0] 
-    roi = np.array(results.boxes.xyxy.cpu())
-    return roi
+# def get_roi(source):
+#     results = model(source=source, show=False, save = False, conf=0.85)[0] 
+#     roi = np.array(results.boxes.xyxy.cpu())
+#     return roi
 
-def apply_roi_mask(image, roi):
-    mask = np.zeros(image.shape[:2], dtype=np.uint8) 
+# def apply_roi_mask(image, roi):
+#     mask = np.zeros(image.shape[:2], dtype=np.uint8) 
 
-    # Inicializa la máscara como una copia de la máscara original (normalmente toda en ceros)
-    for coor in roi:
-        mask[int(coor[1]):int(coor[3]), int(coor[0]):int(coor[2])] = 1  # Pone en 1 los pixeles dentro de los cuadrados definidos
+#     # Inicializa la máscara como una copia de la máscara original (normalmente toda en ceros)
+#     for coor in roi:
+#         mask[int(coor[1]):int(coor[3]), int(coor[0]):int(coor[2])] = 1  # Pone en 1 los pixeles dentro de los cuadrados definidos
 
-    # Aplica la máscara a la imagen
-    masked_image = cv2.bitwise_and(image, image, mask=mask.astype(np.uint8) * 255)
+#     # Aplica la máscara a la imagen
+#     masked_image = cv2.bitwise_and(image, image, mask=mask.astype(np.uint8) * 255)
 
-    return masked_image
+#     return masked_image
 
-def apply_keypoints_mask(image, keypoints):
-    mask = np.zeros(image.shape[:2], dtype=np.uint8)
-    # Inicializa la máscara como una copia de la máscara original (normalmente toda en ceros)
-    for person in keypoints:
-        for kp in person:
-            y, x = int(kp[1]), int(kp[0])
-            # Verificar si las coordenadas están dentro de los límites de la imagen
-            if 0 <= y - 1 < image.shape[0] and 0 <= x - 1 < image.shape[1]:
-                mask[y - 1, x - 1] = 1  # Pone en 1 los pixeles dentro de los cuadrados definidos
-    # Aplica la máscara a la imagen
-    masked_image = cv2.bitwise_and(image, image, mask=mask.astype(np.uint8) * 255)
-    return masked_image
+# def apply_keypoints_mask(image, keypoints):
+#     mask = np.zeros(image.shape[:2], dtype=np.uint8)
+#     # Inicializa la máscara como una copia de la máscara original (normalmente toda en ceros)
+#     for person in keypoints:
+#         for kp in person:
+#             y, x = int(kp[1]), int(kp[0])
+#             # Verificar si las coordenadas están dentro de los límites de la imagen
+#             if 0 <= y - 1 < image.shape[0] and 0 <= x - 1 < image.shape[1]:
+#                 mask[y - 1, x - 1] = 1  # Pone en 1 los pixeles dentro de los cuadrados definidos
+#     # Aplica la máscara a la imagen
+#     masked_image = cv2.bitwise_and(image, image, mask=mask.astype(np.uint8) * 255)
+#     return masked_image
 
 
 def save_image(path, image, image_name, grayscale=False):
@@ -187,7 +188,7 @@ def save_image(path, image, image_name, grayscale=False):
     next_number = len(image_files) + 1
 
     # Crear el nombre del archivo para la nueva imagen
-    new_image_filename = f'{image_name}_{next_number}.jpg'
+    new_image_filename = f'{image_name}_{next_number}.png'
     # Ruta completa del archivo
     full_path = os.path.join(path, new_image_filename)
 
@@ -239,7 +240,7 @@ def extract_situation_frames(camera_type, situation, color=True, save=True):
 def compute_disparity(left_image, right_image, camera_type):
     left_image = cv2.cvtColor(left_image, cv2.COLOR_BGR2GRAY)
     right_image = cv2.cvtColor(right_image, cv2.COLOR_BGR2GRAY)
-    config = camera_configs[camera_type]
+    config = configs[camera_type]
 
     blockSize_var = config['blockSize']
     P1 = 8 * 3 * (blockSize_var ** 2)  
@@ -349,13 +350,13 @@ def process_point_cloud(point_cloud, eps, min_samples, base_filename):
 def generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True, ):
     
     if use_roi:
-        roi = get_roi(img_l)
-        result_image = apply_roi_mask(disparity, roi)
+        roi = kp.get_roi(img_l)
+        result_image = kp.apply_roi_mask(disparity, roi)
         save_image("../images/prediction_results/", result_image, "filtered_roi", False)
         eps, min_samples = 5, 2000
     else:
-        keypoints = get_keypoints(img_l)
-        result_image = apply_keypoints_mask(disparity, keypoints)
+        keypoints = kp.get_keypoints(img_l)
+        result_image = kp.apply_keypoints_mask(disparity, keypoints)
         save_image("../images/prediction_results/", result_image, "filtered_keypoints", False)
 
         eps = 50 if "matlab" in camera_type else 10
@@ -369,15 +370,15 @@ def generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True
 def roi_source_point_cloud(img_l, img_r, Q):
     eps, min_samples = 5, 1800
 
-    roi_left = get_roi(img_l)
-    roi_right = get_roi(img_r)
+    roi_left = kp.get_roi(img_l)
+    roi_right = kp.get_roi(img_r)
 
-    result_img_left = apply_roi_mask(img_l, roi_left)
-    result_img_right = apply_roi_mask(img_r, roi_right)
+    result_img_left = kp.apply_roi_mask(img_l, roi_left)
+    result_img_right = kp.apply_roi_mask(img_r, roi_right)
 
     disparity = compute_disparity(result_img_left, result_img_right)
 
-    filtered_disparity = apply_roi_mask(disparity, roi_left)
+    filtered_disparity = kp.apply_roi_mask(disparity, roi_left)
 
     dense_point_cloud, dense_colors = disparity_to_pointcloud(disparity, Q, img_l, filtered_disparity)
 
