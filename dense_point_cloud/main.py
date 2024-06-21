@@ -7,8 +7,8 @@ import pc_generation as pcGen
 # Definición de los videos y matrices de configuración
 configs = {
     'matlab_1': {
-        'LEFT_VIDEO': '../videos/rectified/left_rectified.avi',
-        'RIGHT_VIDEO': '../videos/rectified/right_rectified.avi',
+        'LEFT_VIDEO': '../videos/rectified/matlab_1/left_rectified.avi',
+        'RIGHT_VIDEO': '../videos/rectified/matlab_1/right_rectified.avi',
         'MATRIX_Q': '../config_files/newStereoMap.xml',
         'disparity_to_depth_map': 'disparity2depth_matrix',
         'numDisparities': 68,
@@ -20,8 +20,8 @@ configs = {
         'mode': cv2.StereoSGBM_MODE_HH
     },
     'opencv_1': {
-        'LEFT_VIDEO': '../videos/rectified/left_rectified_old.avi',
-        'RIGHT_VIDEO': '../videos/rectified/right_rectified_old.avi',
+        'LEFT_VIDEO': '../videos/rectified/opencv_1/left_rectified.avi',
+        'RIGHT_VIDEO': '../videos/rectified/opencv_1/right_rectified.avi',
         'MATRIX_Q': '../config_files/old_config/stereoMap.xml',
         'disparity_to_depth_map': 'disparityToDepthMap',
         'numDisparities': 52,
@@ -36,6 +36,19 @@ configs = {
         'LEFT_VIDEO': '../videos/rectified/left_rectified_matlab_2.avi',
         'RIGHT_VIDEO': '../videos/rectified/right_rectified_matlab_2.avi',
         'MATRIX_Q': '../config_files/laser_config/including_Y_rotation_random/lyrrStereoMap.xml',
+        'disparity_to_depth_map': 'disparity2depth_matrix',
+        'numDisparities': 68,
+        'blockSize': 7, 
+        'minDisparity': 5,
+        'disp12MaxDiff': 33,
+        'uniquenessRatio': 10,
+        'preFilterCap': 33,
+        'mode': cv2.StereoSGBM_MODE_HH
+    },
+    'matlab_3': {
+        'LEFT_VIDEO': '../videos/rectified/matlab_3/left_rectified.avi',
+        'RIGHT_VIDEO': '../videos/rectified/matlab_3/right_rectified.avi',
+        'MATRIX_Q': '../config_files/laser_config/including_Y_rotation_random/iyrrStereoMap.xml',
         'disparity_to_depth_map': 'disparity2depth_matrix',
         'numDisparities': 68,
         'blockSize': 7, 
@@ -123,98 +136,97 @@ def extract_image_frame(LEFT_VIDEO, RIGHT_VIDEO, n_frame, color=True, save=True)
 def extract_situation_frames(camera_type, situation, color=True, save=True):
     if situation in situations:
         n_frame = situations[situation]
-        LEFT_VIDEO, RIGHT_VIDEO, Q = pcGen.select_camera_config(camera_type)
+        LEFT_VIDEO, RIGHT_VIDEO, Q = select_camera_config(camera_type)
         return extract_image_frame(LEFT_VIDEO, RIGHT_VIDEO, n_frame, color, save), Q
     else:
         raise ValueError("Situación no encontrada en el diccionario.")
 
 # Flujo principal para todas las situaciones
 data = []
-camera_type = 'opencv_1'
+camera_type = 'matlab_3'
 mask_type = 'keypoint'
 is_roi = (mask_type == "roi")
 
-for situation in situations:
-    try:
-        print(f"\nProcesando situación: {situation}")
-        (img_l, img_r), Q = pcGen.extract_situation_frames(camera_type, situation, False, False)
-        img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
-        img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
+# for situation in situations:
+#     try:
+#         print(f"\nProcesando situación: {situation}")
+#         (img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
+#         img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
+#         img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
         
-        #disparity, point_cloud, colors, eps, min_samples = roi_source_point_cloud(img_l, img_r, Q)
+#         #disparity, point_cloud, colors, eps, min_samples = roi_source_point_cloud(img_l, img_r, Q)
         
-        disparity = pcGen.compute_disparity(img_l, img_r, configs[camera_type])
+#         disparity = pcGen.compute_disparity(img_l, img_r, configs[camera_type])
 
-        # # Generar nube de puntos densa sin filtrado adicional
-        dense_point_cloud, dense_colors = pcGen.disparity_to_pointcloud(disparity, Q, img_l)
-        dense_point_cloud = dense_point_cloud.astype(np.float64)
+#         # # Generar nube de puntos densa sin filtrado adicional
+#         dense_point_cloud, dense_colors = pcGen.disparity_to_pointcloud(disparity, Q, img_l)
+#         dense_point_cloud = dense_point_cloud.astype(np.float64)
 
-        base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}"
-        if not os.path.exists(os.path.dirname(base_filename)):
-            os.makedirs(os.path.dirname(base_filename))
+#         base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}"
+#         if not os.path.exists(os.path.dirname(base_filename)):
+#             os.makedirs(os.path.dirname(base_filename))
 
-        # base_filename = f"./point_clouds/test_old/{camera_type}_{situation}"
-        pcGen.save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
+#         # base_filename = f"./point_clouds/test_old/{camera_type}_{situation}"
+#         pcGen.save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
 
-        # # Generar nube de puntos con filtrado y aplicar DBSCAN
-        point_cloud, colors, eps, min_samples = pcGen.generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=is_roi)
-        centroids = pcGen.process_point_cloud(point_cloud, eps, min_samples, base_filename)
+#         # # Generar nube de puntos con filtrado y aplicar DBSCAN
+#         point_cloud, colors, eps, min_samples = pcGen.generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=is_roi)
+#         centroids = pcGen.process_point_cloud(point_cloud, eps, min_samples, base_filename)
 
-        z_estimations = [centroid[2] for centroid in centroids] if centroids is not None else []
-        data.append({
-            "situation": situation,
-            **{f"z_estimation_{i+1}": z for i, z in enumerate(z_estimations)}
-        })
+#         z_estimations = [centroid[2] for centroid in centroids] if centroids is not None else []
+#         data.append({
+#             "situation": situation,
+#             **{f"z_estimation_{i+1}": z for i, z in enumerate(z_estimations)}
+#         })
 
         
-    except Exception as e:
-        print(f"Error procesando {situation}: {e}")
+#     except Exception as e:
+#         print(f"Error procesando {situation}: {e}")
 
 
-# # Flujo principal
-# camera_type, situation = 'new', '150_front'
-# (img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
-# img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
-# img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
+# Flujo principal
+camera_type, situation = 'matlab_1', '150_front'
+try:
+    (img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
+    img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
+    img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
 
-# disparity = compute_disparity(img_l, img_r)
+    disparity = pcGen.compute_disparity(img_l, img_r, configs[camera_type])
 
-# # with open("../config_files/stereoParameters.json", "r") as file:
-# #     params = json.load(file)
-# #     baseline = -(params["stereoT"][0])
-# #     fpx = params["flCamera1"][0]
+    # Generar nube de puntos densa sin filtrado adicional
+    dense_point_cloud, dense_colors = pcGen.disparity_to_pointcloud(disparity, Q, img_l)
+    dense_point_cloud = dense_point_cloud.astype(np.float64)
+    base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}"
+    if not os.path.exists(os.path.dirname(base_filename)):
+        os.makedirs(os.path.dirname(base_filename))
+    pcGen.save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
 
-# # Generar nube de puntos densa sin filtrado adicional
-# dense_point_cloud, dense_colors = disparity_to_pointcloud(disparity, Q, img_l)
-# dense_point_cloud = dense_point_cloud.astype(np.float64)
-# base_filename = f"./point_clouds/{camera_type}_calibration_{situation}"
-# save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
-
-# # Generar nube de puntos con filtrado y aplicar DBSCAN
-# point_cloud, colors, eps, min_samples = generate_filtered_point_cloud(img_l, disparity, Q, use_roi=False)
-# process_point_cloud(point_cloud, eps, min_samples, base_filename)
-
+    # Generar nube de puntos con filtrado y aplicar DBSCAN
+    point_cloud, colors, eps, min_samples = pcGen.generate_filtered_point_cloud(img_l, disparity, Q, camera_type,  use_roi=is_roi)
+    pcGen.process_point_cloud(point_cloud, eps, min_samples, base_filename)
+except Exception as e:
+    print(f"Error procesando {situation}: {e}")
 
 ################################################ GUARDAR DATASET ###############################################################
 
+if len(data) > 0:
+    # Guardar dataset como CSV
+    dataset_path = f"../datasets/data/z_estimation_{camera_type}_{mask_type}.csv"
+    # dataset_path = f"../datasets/data/z_estimation_{camera_type}_keypoints_no_astype_no_norm.csv"
+    # dataset_path = f"../datasets/data/z_estimation_{camera_type}_roi.csv"
+    # dataset_path = f"../datasets/data/z_estimation_{camera_type}_roi_before_disparity.csv"
 
-# Guardar dataset como CSV
-dataset_path = f"../datasets/data/z_estimation_{camera_type}_{mask_type}.csv"
-# dataset_path = f"../datasets/data/z_estimation_{camera_type}_keypoints_no_astype_no_norm.csv"
-# dataset_path = f"../datasets/data/z_estimation_{camera_type}_roi.csv"
-# dataset_path = f"../datasets/data/z_estimation_{camera_type}_roi_before_disparity.csv"
+    if not os.path.exists(os.path.dirname(dataset_path)):
+        os.makedirs(os.path.dirname(dataset_path))
 
-if not os.path.exists(os.path.dirname(dataset_path)):
-    os.makedirs(os.path.dirname(dataset_path))
+    max_z_count = max(len(row) - 1 for row in data) # -1 porque situation no es una columna z_estimation
 
-max_z_count = max(len(row) - 1 for row in data) # -1 porque situation no es una columna z_estimation
+    fieldnames = ["situation"] + [f"z_estimation_{i+1}" for i in range(max_z_count)]
 
-fieldnames = ["situation"] + [f"z_estimation_{i+1}" for i in range(max_z_count)]
+    with open(dataset_path, "w", newline='') as csvfile:
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
 
-with open(dataset_path, "w", newline='') as csvfile:
-    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-
-    writer.writeheader()
-    for row in data:
-        writer.writerow(row)
-print(f"Dataset guardado en {dataset_path}")
+        writer.writeheader()
+        for row in data:
+            writer.writerow(row)
+    print(f"Dataset guardado en {dataset_path}")

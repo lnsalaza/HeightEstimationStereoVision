@@ -15,20 +15,25 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # --------------------------------------------------- KEYPOINTS EXTRACTION -------------------------------------------------------
 
 # Load a model
-model = YOLO('yolov8n-pose.pt').to(device=device)  # load an official model
-
+pose = YOLO('yolov8n-pose.pt').to(device=device)  # load an official model
+segmentation = YOLO('yolov8n-seg.pt').to(device=device)  # load an official model
 
 
 # Extract results
 def get_keypoints(source):
-    results = model(source=source, show=False, save = False, conf=0.85)[0] 
+    results = pose(source=source, show=False, save = False, conf=0.85)[0] 
     keypoints = np.array(results.keypoints.xy.cpu())
     return keypoints
 
 def get_roi(source):
-    results = model(source=source, show=False, save = False, conf=0.85)[0] 
+    results = pose(source=source, show=False, save = False, conf=0.85)[0] 
     roi = np.array(results.boxes.xyxy.cpu())
     return roi
+
+def get_segmentation(source):
+    results = segmentation(source=source, show=False, save = False, conf=0.85)[0] 
+    seg = results.masks.xy
+    return seg
 
 def apply_roi_mask(image, roi):
     mask = np.zeros(image.shape[:2], dtype=np.uint8) 
@@ -53,4 +58,20 @@ def apply_keypoints_mask(image, keypoints):
                 mask[y - 1, x - 1] = 1  # Pone en 1 los pixeles dentro de los cuadrados definidos
     # Aplica la máscara a la imagen
     masked_image = cv2.bitwise_and(image, image, mask=mask.astype(np.uint8) * 255)
+    return masked_image
+
+
+def apply_seg_mask(image, segmentation):
+    mask = np.zeros(image.shape[:2], dtype=np.uint8)  # Inicializa la máscara en ceros
+
+    # Itera sobre cada segmento en la segmentación
+    for seg in segmentation:
+        # Convierte las coordenadas del segmento a un formato adecuado para fillPoly
+        seg = np.array(seg, dtype=np.int32)
+        # Rellena el área dentro del contorno
+        cv2.fillPoly(mask, [seg], 1)
+
+    # Aplica la máscara a la imagen
+    masked_image = cv2.bitwise_and(image, image, mask=mask * 255)
+
     return masked_image

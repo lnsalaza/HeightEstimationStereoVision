@@ -5,11 +5,12 @@ import joblib
 import matplotlib.pyplot as plt 
 from sklearn.linear_model import LinearRegression
 
-# file_name = "z_estimation_opencv_1_keypoint5" 
-file_name = "z_estimation_matlab_1_keypoint" 
+# file_name = "z_estimation_opencv_1_keypoint5"
+folder = "matlab_3" 
+file_name = f"z_estimation_{folder}_keypoint" 
 # file_name = "z_estimation_matlab_kp_cm" 
 
-df = pd.read_csv(f"data/newer/{file_name}.csv")
+df = pd.read_csv(f"data/{folder}/{file_name}.csv")
 # df = pd.read_csv(f"steven/{file_name}.csv")
 # df = pd.read_csv("z_estimation_old_keypoints_no_astype_no_norm.csv")
 
@@ -155,17 +156,17 @@ def save_plot(df, original, path):
 
 ###########################################ORIGINAL#####################################
 
-save_plot(df_front, True, f"./graficas/prueba/original_{file_name}.png")
+save_plot(df_front, True, f"./graficas/{folder}/original_{file_name}.png")
 
 ###########################################CORRECTED#####################################
 
-save_plot(df_variant, False, f"./graficas/prueba/corrected_{file_name}.png")
+save_plot(df_variant, False, f"./graficas/{folder}/corrected_{file_name}.png")
 
 ########################################### ORIGINAL COMPLETE #####################################
 
-save_plot(df_processed, True, f"./graficas/prueba/original_{file_name}_complete.png")
+save_plot(df_processed, True, f"./graficas/{folder}/original_{file_name}_complete.png")
 
 ########################################### CORRECTED COMPLETE #####################################
 
-save_plot(df_processed, False, f"./graficas/prueba/corrected_{file_name}_complete.png")
+save_plot(df_processed, False, f"./graficas/{folder}/corrected_{file_name}_complete.png")
 

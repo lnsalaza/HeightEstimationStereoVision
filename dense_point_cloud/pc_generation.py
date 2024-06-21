@@ -1,31 +1,17 @@
 import os
 import cv2
-import csv
-import json
 import torch
 import numpy as np
 import open3d as o3d
-import matplotlib.pyplot as plt
 from sklearn.cluster import DBSCAN
 import keypoint_extraction as kp
 
-from ultralytics import YOLO
-
-from ultralytics.utils.plotting import Annotator
-
-torch.cuda.set_device(0)
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 # Aplicar el filtro bilateral
 sigma = 1.5  # Parámetro de sigma utilizado para el filtrado WLS.
 lmbda = 8000.0  # Parámetro lambda usado en el filtrado WLS.
 
-
-
-
-# LEFT_VIDEO, RIGHT_VIDEO, Q = select_camera_config("new")
 
 
 # Función para guardar la nube de puntos
@@ -148,7 +134,7 @@ def get_centroids(point_cloud, labels):
             print("z = ", str(centroid[2]))
         return np.array(centroids)
 
-# CREACIÓN DE NUBE DE PUNTOS densa
+# CREACIÓN DE NUBE DE PUNTOS DENSA
 def create_point_cloud(points, colors=None):
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points)
@@ -177,14 +163,14 @@ def process_point_cloud(point_cloud, eps, min_samples, base_filename):
 def generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True, ):
     
     if use_roi:
-        roi = kp.get_roi(img_l)
-        result_image = kp.apply_roi_mask(disparity, roi)
-        save_image("../images/prediction_results/", result_image, "filtered_roi", False)
-        eps, min_samples = 5, 2000
+        seg = kp.get_segmentation(img_l)
+        result_image = kp.apply_seg_mask(disparity, seg)
+        save_image("../images/prediction_results/", result_image, "filtered_seg", False)
+        eps, min_samples = 10, 1000
     else:
         keypoints = kp.get_keypoints(img_l)
         result_image = kp.apply_keypoints_mask(disparity, keypoints)
-        save_image("../images/prediction_results/", result_image, "filtered_keypoints", False)
+        #save_image("../images/prediction_results/", result_image, "filtered_keypoints", False)
 
         eps = 50 if "matlab" in camera_type else 10
         min_samples = 6

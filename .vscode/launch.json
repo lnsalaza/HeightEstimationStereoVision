@@ -10,7 +10,7 @@
             "request": "launch",
             "program": "${file}",
             "console": "integratedTerminal",
-            "cwd": "${workspaceFolder}/datasets"
+            "cwd": "${workspaceFolder}/dense_point_cloud"
         }
     ]
 }

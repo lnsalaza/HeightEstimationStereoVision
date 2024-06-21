@@ -120,11 +120,11 @@ def print_centroid_z_coordinates(centroid_file):
 # Uso de las funciones
 if __name__ == "__main__":
 
-    folder = "opencv_1/keypoint_disparity"
+    folder = "matlab_3/keypoint_disparity"
     # folder = "new_keypoints_disparity"
 
     # situacion = "old_400_front"
-    situacion = "opencv_1_250_500"
+    situacion = "matlab_3_150_front"
 
 
 
