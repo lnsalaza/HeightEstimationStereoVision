@@ -75,3 +75,15 @@ def apply_seg_mask(image, segmentation):
     masked_image = cv2.bitwise_and(image, image, mask=mask * 255)
 
     return masked_image
+
+def apply_seg_individual_mask(image, segmentation):
+    mask = np.zeros(image.shape[:2], dtype=np.uint8)  # Inicializa la máscara en ceros
+    # Convierte las coordenadas del segmento a un formato adecuado para fillPoly
+    segmentation = np.array(segmentation, dtype=np.int32)
+    # Rellena el área dentro del contorno
+    cv2.fillPoly(mask, [segmentation], 1)
+
+    # Aplica la máscara a la imagen
+    masked_image = cv2.bitwise_and(image, image, mask=mask * 255)
+
+    return masked_image

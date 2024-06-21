@@ -166,7 +166,7 @@ def generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True
         seg = kp.get_segmentation(img_l)
         result_image = kp.apply_seg_mask(disparity, seg)
         save_image("../images/prediction_results/", result_image, "filtered_seg", False)
-        eps, min_samples = 10, 1000
+        eps, min_samples = 2, 3500
     else:
         keypoints = kp.get_keypoints(img_l)
         result_image = kp.apply_keypoints_mask(disparity, keypoints)
@@ -179,6 +179,24 @@ def generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True
     point_cloud = point_cloud.astype(np.float64)
     
     return point_cloud, colors, eps, min_samples
+
+def roi_no_dense_pc(img_l, disparity, Q):
+    segmentation = kp.get_segmentation(img_l)
+    point_clouds, pc_colors = [], []
+
+    for seg in segmentation:
+        mask = kp.apply_seg_individual_mask(img_l, seg)
+        #save_image("../images/prediction_results/prueba", mask, "individuo", False)
+        point_cloud, color = disparity_to_pointcloud(disparity, Q, img_l, mask)
+        point_cloud = point_cloud.astype(np.float64)
+        point_clouds.append(point_cloud)
+        pc_colors.append(color)
+
+    return point_clouds, pc_colors 
+    
+
+
+
 
 def roi_source_point_cloud(img_l, img_r, Q):
     eps, min_samples = 5, 1800

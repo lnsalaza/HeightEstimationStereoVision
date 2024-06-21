@@ -143,10 +143,10 @@ def extract_situation_frames(camera_type, situation, color=True, save=True):
 
 # Flujo principal para todas las situaciones
 data = []
-camera_type = 'matlab_3'
+camera_type = 'matlab_1'
 mask_type = 'keypoint'
 is_roi = (mask_type == "roi")
-
+situation = "150_front"
 # for situation in situations:
 #     try:
 #         print(f"\nProcesando situación: {situation}")
@@ -185,7 +185,6 @@ is_roi = (mask_type == "roi")
 
 
 # Flujo principal
-camera_type, situation = 'matlab_1', '150_front'
 try:
     (img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
     img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
@@ -204,6 +203,9 @@ try:
     # Generar nube de puntos con filtrado y aplicar DBSCAN
     point_cloud, colors, eps, min_samples = pcGen.generate_filtered_point_cloud(img_l, disparity, Q, camera_type,  use_roi=is_roi)
     pcGen.process_point_cloud(point_cloud, eps, min_samples, base_filename)
+
+    # point_cloud, colors = pcGen.roi_no_dense_pc(img_l,disparity,Q)
+    # print(point_cloud, colors)
 except Exception as e:
     print(f"Error procesando {situation}: {e}")
 
@@ -212,9 +214,6 @@ except Exception as e:
 if len(data) > 0:
     # Guardar dataset como CSV
     dataset_path = f"../datasets/data/z_estimation_{camera_type}_{mask_type}.csv"
-    # dataset_path = f"../datasets/data/z_estimation_{camera_type}_keypoints_no_astype_no_norm.csv"
-    # dataset_path = f"../datasets/data/z_estimation_{camera_type}_roi.csv"
-    # dataset_path = f"../datasets/data/z_estimation_{camera_type}_roi_before_disparity.csv"
 
     if not os.path.exists(os.path.dirname(dataset_path)):
         os.makedirs(os.path.dirname(dataset_path))
