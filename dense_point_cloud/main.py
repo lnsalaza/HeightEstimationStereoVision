@@ -1,6 +1,7 @@
 import os
 import cv2
 import csv
+import joblib
 import numpy as np
 import pc_generation as pcGen
 
@@ -146,68 +147,71 @@ data = []
 camera_type = 'matlab_1'
 mask_type = 'keypoint'
 is_roi = (mask_type == "roi")
-situation = "150_front"
-# for situation in situations:
-#     try:
-#         print(f"\nProcesando situación: {situation}")
-#         (img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
-#         img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
-#         img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
+situation = "250_350"
+
+model_path = "../datasets/models/z_estimation_matlab_1_keypoint_ln_model.pkl"
+# Cargar el modelo de regresión lineal entrenado
+model = joblib.load(model_path)
+for situation in situations:
+    try:
+        print(f"\nProcesando situación: {situation}")
+        (img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
+        img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
+        img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
         
-#         #disparity, point_cloud, colors, eps, min_samples = roi_source_point_cloud(img_l, img_r, Q)
-        
-#         disparity = pcGen.compute_disparity(img_l, img_r, configs[camera_type])
+        disparity = pcGen.compute_disparity(img_l, img_r, configs[camera_type])
 
-#         # # Generar nube de puntos densa sin filtrado adicional
-#         dense_point_cloud, dense_colors = pcGen.disparity_to_pointcloud(disparity, Q, img_l)
-#         dense_point_cloud = dense_point_cloud.astype(np.float64)
+        # # Generar nube de puntos densa sin filtrado adicional
+        dense_point_cloud, dense_colors = pcGen.disparity_to_pointcloud(disparity, Q, img_l)
+        dense_point_cloud = dense_point_cloud.astype(np.float64)
+        dense_point_cloud = pcGen.point_cloud_correction(dense_point_cloud, model)
+        base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}"
+        if not os.path.exists(os.path.dirname(base_filename)):
+            os.makedirs(os.path.dirname(base_filename))
+        pcGen.save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
 
-#         base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}"
-#         if not os.path.exists(os.path.dirname(base_filename)):
-#             os.makedirs(os.path.dirname(base_filename))
+        # # Generar nube de puntos con filtrado y aplicar DBSCAN
+        point_cloud, colors, eps, min_samples = pcGen.generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=is_roi)
+        point_cloud = pcGen.point_cloud_correction(point_cloud, model)
+        centroids = pcGen.process_point_cloud(point_cloud, eps, min_samples, base_filename)
 
-#         # base_filename = f"./point_clouds/test_old/{camera_type}_{situation}"
-#         pcGen.save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
-
-#         # # Generar nube de puntos con filtrado y aplicar DBSCAN
-#         point_cloud, colors, eps, min_samples = pcGen.generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=is_roi)
-#         centroids = pcGen.process_point_cloud(point_cloud, eps, min_samples, base_filename)
-
-#         z_estimations = [centroid[2] for centroid in centroids] if centroids is not None else []
-#         data.append({
-#             "situation": situation,
-#             **{f"z_estimation_{i+1}": z for i, z in enumerate(z_estimations)}
-#         })
+        z_estimations = [centroid[2] for centroid in centroids] if centroids is not None else []
+        data.append({
+            "situation": situation,
+            **{f"z_estimation_{i+1}": z for i, z in enumerate(z_estimations)}
+        })
 
         
-#     except Exception as e:
-#         print(f"Error procesando {situation}: {e}")
+    except Exception as e:
+        print(f"Error procesando {situation}: {e}")
 
 
-# Flujo principal
-try:
-    (img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
-    img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
-    img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
+# # Flujo principal
+# try:
+#     (img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
+#     img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
+#     img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
 
-    disparity = pcGen.compute_disparity(img_l, img_r, configs[camera_type])
+#     disparity = pcGen.compute_disparity(img_l, img_r, configs[camera_type])
 
-    # Generar nube de puntos densa sin filtrado adicional
-    dense_point_cloud, dense_colors = pcGen.disparity_to_pointcloud(disparity, Q, img_l)
-    dense_point_cloud = dense_point_cloud.astype(np.float64)
-    base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}"
-    if not os.path.exists(os.path.dirname(base_filename)):
-        os.makedirs(os.path.dirname(base_filename))
-    pcGen.save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
+#     # Generar nube de puntos densa sin filtrado adicional
+#     dense_point_cloud, dense_colors = pcGen.disparity_to_pointcloud(disparity, Q, img_l)
+#     dense_point_cloud = dense_point_cloud.astype(np.float64)
+#     dense_point_cloud_corrected = pcGen.point_cloud_correction(dense_point_cloud, model)
+#     base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}"
+#     if not os.path.exists(os.path.dirname(base_filename)):
+#         os.makedirs(os.path.dirname(base_filename))
+#     pcGen.save_dense_point_cloud(dense_point_cloud_corrected, dense_colors, base_filename)
 
-    # Generar nube de puntos con filtrado y aplicar DBSCAN
-    point_cloud, colors, eps, min_samples = pcGen.generate_filtered_point_cloud(img_l, disparity, Q, camera_type,  use_roi=is_roi)
-    pcGen.process_point_cloud(point_cloud, eps, min_samples, base_filename)
+#     # Generar nube de puntos con filtrado y aplicar DBSCAN
+#     point_cloud, colors, eps, min_samples = pcGen.generate_filtered_point_cloud(img_l, disparity, Q, camera_type,  use_roi=is_roi)
+#     point_cloud_corrected = pcGen.point_cloud_correction(point_cloud, model)
+#     pcGen.process_point_cloud(point_cloud_corrected, eps, min_samples, base_filename)
 
-    # point_cloud, colors = pcGen.roi_no_dense_pc(img_l,disparity,Q)
-    # print(point_cloud, colors)
-except Exception as e:
-    print(f"Error procesando {situation}: {e}")
+#     # point_cloud, colors = pcGen.roi_no_dense_pc(img_l,disparity,Q)
+#     # print(point_cloud, colors)
+# except Exception as e:
+#     print(f"Error procesando {situation}: {e}")
 
 ################################################ GUARDAR DATASET ###############################################################
 

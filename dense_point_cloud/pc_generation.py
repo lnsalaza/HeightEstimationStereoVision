@@ -216,6 +216,18 @@ def roi_source_point_cloud(img_l, img_r, Q):
     return filtered_disparity, dense_point_cloud, dense_colors, eps, min_samples
 
 
+def point_cloud_correction(points, model):
+    points = np.asarray(points)
+
+    Xy = points[:,:2]
+    # Predecir las coordenadas Z corregidas usando el modelo
+    z = points[:, 2].reshape(-1,1)  # Tomar solo las coordenadas X, y
+    z_pred = model.predict(z)
+    
+    # Actualizar las coordenadas Z de la nube de puntos con las predicciones corregidas
+    corrected_points = np.column_stack((Xy, z_pred))
+    return corrected_points
+
 
 def save_dense_point_cloud(point_cloud, colors, base_filename):
     dense_filename = f"{base_filename}_dense.ply"

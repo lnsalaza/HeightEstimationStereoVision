@@ -21,17 +21,17 @@ segmentation = YOLO('yolov8n-seg.pt').to(device=device)  # load an official mode
 
 # Extract results
 def get_keypoints(source):
-    results = pose(source=source, show=False, save = False, conf=0.85)[0] 
+    results = pose(source=source, show=False, save = False, conf=0.8)[0] 
     keypoints = np.array(results.keypoints.xy.cpu())
     return keypoints
 
 def get_roi(source):
-    results = pose(source=source, show=False, save = False, conf=0.85)[0] 
+    results = pose(source=source, show=False, save = False, conf=0.8)[0] 
     roi = np.array(results.boxes.xyxy.cpu())
     return roi
 
 def get_segmentation(source):
-    results = segmentation(source=source, show=False, save = False, conf=0.85)[0] 
+    results = segmentation(source=source, show=False, save = False, conf=0.8)[0] 
     seg = results.masks.xy
     return seg
 
