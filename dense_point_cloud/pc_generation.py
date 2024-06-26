@@ -14,14 +14,6 @@ lmbda = 8000.0  # Parámetro lambda usado en el filtrado WLS.
 
 
 
-# Función para guardar la nube de puntos
-def save_point_cloud(point_cloud, colors, camera_type, situation):
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(point_cloud)
-    pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)
-    filename = f"./point_clouds/{camera_type}_{situation}.ply"
-    o3d.io.write_point_cloud(filename, pcd, print_progress=True)
-
 
 def save_image(path, image, image_name, grayscale=False):
     # Asegúrate de que el directorio existe
@@ -143,6 +135,8 @@ def create_point_cloud(points, colors=None):
     return pcd
 
 def save_point_cloud(point_cloud, colors, filename):
+    if not os.path.exists(os.path.dirname(filename)):
+        os.makedirs(os.path.dirname(filename))
     pcd = create_point_cloud(point_cloud, colors)
     o3d.io.write_point_cloud(filename, pcd, print_progress=True)
 
@@ -151,21 +145,23 @@ def process_point_cloud(point_cloud, eps, min_samples, base_filename):
     centroids = get_centroids(point_cloud, labels)
 
     if centroids is not None:
-        original_cloud_colors = np.ones_like(point_cloud) * [0, 0, 255]  # Azul
-        original_filename = f"{base_filename}_original.ply"
-        save_point_cloud(point_cloud, original_cloud_colors, original_filename)
-
+        
         centroid_colors = np.tile([[255, 0, 0]], (len(centroids), 1))  # Rojo
         centroid_filename = f"{base_filename}_centroids.ply"
         save_point_cloud(centroids, centroid_colors, centroid_filename)
+        
+    original_cloud_colors = np.ones_like(point_cloud) * [0, 0, 255]  # Azul
+    original_filename = f"{base_filename}_original.ply"
+    save_point_cloud(point_cloud, original_cloud_colors, original_filename)
+
     return centroids
 
-def generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True, ):
+def generate_all_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True, ):
     
     if use_roi:
         seg = kp.get_segmentation(img_l)
         result_image = kp.apply_seg_mask(disparity, seg)
-        save_image("../images/prediction_results/", result_image, "filtered_seg", False)
+        #save_image("../images/prediction_results/", result_image, "filtered_seg", False)
         eps, min_samples = 2, 3500
     else:
         keypoints = kp.get_keypoints(img_l)
@@ -179,6 +175,39 @@ def generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True
     point_cloud = point_cloud.astype(np.float64)
     
     return point_cloud, colors, eps, min_samples
+
+def generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True, ):
+    result_image_list = []
+    point_cloud_list = []
+    colors_list = []
+    if use_roi:
+        seg = kp.get_segmentation(img_l)
+        for i in seg:
+            i_list = [i]
+            result_image = kp.apply_seg_mask(disparity, i_list)
+            result_image_list.append(result_image)
+            
+        #save_image("../images/prediction_results/", result_image, "filtered_seg", False)
+        eps, min_samples = 2, 3500
+    else:
+        keypoints = kp.get_keypoints(img_l)
+        for i in keypoints:
+            i_list = [i]
+            result_image = kp.apply_keypoints_mask(disparity, i_list)
+            result_image_list.append(result_image)
+           
+        
+        #save_image("../images/prediction_results/", result_image, "filtered_keypoints", False)
+
+        eps = 50 if "matlab" in camera_type else 10
+        min_samples = 6
+
+    for mask in result_image_list:
+        point_cloud, colors = disparity_to_pointcloud(disparity, Q, img_l, mask)
+        point_cloud = point_cloud.astype(np.float64)
+        point_cloud_list.append(point_cloud), colors_list.append(colors)
+    
+    return point_cloud_list, colors_list, eps, min_samples
 
 def roi_no_dense_pc(img_l, disparity, Q):
     segmentation = kp.get_segmentation(img_l)
@@ -194,9 +223,6 @@ def roi_no_dense_pc(img_l, disparity, Q):
 
     return point_clouds, pc_colors 
     
-
-
-
 
 def roi_source_point_cloud(img_l, img_r, Q):
     eps, min_samples = 5, 1800
@@ -230,6 +256,8 @@ def point_cloud_correction(points, model):
 
 
 def save_dense_point_cloud(point_cloud, colors, base_filename):
+    if not os.path.exists(os.path.dirname(base_filename)):
+        os.makedirs(os.path.dirname(base_filename))
     dense_filename = f"{base_filename}_dense.ply"
     save_point_cloud(point_cloud, colors, dense_filename)
 

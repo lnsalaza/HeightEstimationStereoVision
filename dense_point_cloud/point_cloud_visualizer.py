@@ -1,11 +1,13 @@
 import open3d as o3d
 import numpy as np
-def visualize_sparse_point_cloud(pcd_file, centroid_file):
+
+def visualize_sparse_point_cloud(pcd_file, centroid_file=None):
 
     # Leer la nube de puntos y los centroides
     pcd = o3d.io.read_point_cloud(pcd_file)
-    centroid_cloud = o3d.io.read_point_cloud(centroid_file)
-    
+    #centroid_cloud = o3d.io.read_point_cloud(centroid_file)
+    origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10, origin=[0,0,0])
+
     # Obtener el Axis-Aligned Bounding Box (AABB)
     aabb = pcd.get_axis_aligned_bounding_box()
     aabb.color = (1, 0, 0)
@@ -19,12 +21,12 @@ def visualize_sparse_point_cloud(pcd_file, centroid_file):
     viewer.create_window()
 
     # Visualizar las geometrías
-    o3d.visualization.draw_geometries([pcd, centroid_cloud, aabb, obb])
+    o3d.visualization.draw_geometries([pcd, origin, aabb])
 
     # Destruir la ventana del visualizador
     viewer.destroy_window()
 
-def create_mark_lines(width=20, height=10, depth=100, interval=10):
+def create_mark_lines(width=200, height=40, depth=1000, interval=100):
 
 
     points = [
@@ -61,26 +63,20 @@ def create_mark_lines(width=20, height=10, depth=100, interval=10):
     line_set.colors = o3d.utility.Vector3dVector(colors)
     return line_set
 
-def create_point(coordinates = [0, 0 ,0], color = [0,1,0]):
-    point = o3d.geometry.PointCloud()
-    point.points = o3d.utility.Vector3dVector([coordinates])
-    point.colors = o3d.utility.Vector3dVector([color])
-    return point
-
 
 def visualize_dense_point_cloud(pcd_file):
-    point = create_point()
+    
+    
     mark_lines = create_mark_lines()
     # Leer la nube de puntos densa
     pcd = o3d.io.read_point_cloud(pcd_file)
 
-    # ESCALADO BETA
-    scale_factor = 1.0
-    scaling_matrix = np.eye(4)
-    scaling_matrix[:3, :3] *= scale_factor
+    # # ESCALADO BETA
+    # scale_factor = 1.0
+    # scaling_matrix = np.eye(4)
+    # scaling_matrix[:3, :3] *= scale_factor
 
-    pcd = pcd.transform(scaling_matrix)
-
+    # pcd = pcd.transform(scaling_matrix)
 
     z_min, z_max = 0, 1000
     bounding_box = o3d.geometry.AxisAlignedBoundingBox(min_bound=(-float('inf'), -float('inf'), z_min), max_bound=(float('inf'), float('inf'), z_max))
@@ -120,35 +116,29 @@ def print_centroid_z_coordinates(centroid_file):
 # Uso de las funciones
 if __name__ == "__main__":
 
-    folder = "matlab_1/roi_disparity"
-    # folder = "new_keypoints_disparity"
+    config = "matlab_1"
+    mask = "keypoint"
+    situacion = "300_front"
 
-    # situacion = "old_400_front"
-    situacion = "matlab_1_150_front"
-
-
-
-    # folder = "new_keypoints_disparity"
-
-    
-    # situacion = "new_600_front"
-
-
+    filepath = f"./point_clouds/{config}/{mask}_disparity/{config}_{situacion}"
 
     # Visualización de la nube de puntos densa
-    dense_pcd_file = f"./point_clouds/{folder}/{situacion}_dense.ply"
+    dense_pcd_file = f"{filepath}_dense.ply"
  
-    visualize_dense_point_cloud(dense_pcd_file)
+    #visualize_dense_point_cloud(dense_pcd_file)
 
     
     # Visualización de la nube de puntos dispersa
-    sparse_pcd_file = f"./point_clouds/{folder}/{situacion}_original.ply"
-    centroid_file = f"./point_clouds/{folder}/{situacion}_centroids.ply"
+    sparse_pcd_file = f"{filepath}_original_0.ply"
+    # centroid_file = f"./point_clouds/{folder}/{situacion}_centroids.ply"
     
     # Imprimir coordenadas Z de los centroides
-    print_centroid_z_coordinates(centroid_file)
+    # print_centroid_z_coordinates(centroid_file)
+
     
     # Visualizar la nube de puntos dispersa
-    visualize_sparse_point_cloud(sparse_pcd_file, centroid_file)
+    visualize_sparse_point_cloud(sparse_pcd_file)
     
+    #visualize_sparse_point_cloud(sparse_pcd_file)
+    #visualize_sparse_point_cloud(dense_pcd_file, sparse_pcd_file)
     

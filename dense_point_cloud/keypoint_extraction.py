@@ -21,7 +21,7 @@ segmentation = YOLO('yolov8n-seg.pt').to(device=device)  # load an official mode
 
 # Extract results
 def get_keypoints(source):
-    results = pose(source=source, show=False, save = False, conf=0.8)[0] 
+    results = pose(source=source, show=False, save = True, conf=0.8)[0] 
     keypoints = np.array(results.keypoints.xy.cpu())
     return keypoints
 
@@ -56,9 +56,15 @@ def apply_keypoints_mask(image, keypoints):
             # Verificar si las coordenadas están dentro de los límites de la imagen
             if 0 <= y - 1 < image.shape[0] and 0 <= x - 1 < image.shape[1]:
                 mask[y - 1, x - 1] = 1  # Pone en 1 los pixeles dentro de los cuadrados definidos
+        # print(person)
+        # kp = person[16]
+        # mask[int(kp[1]) - 1, int(kp[0]) - 1] = 1
     # Aplica la máscara a la imagen
     masked_image = cv2.bitwise_and(image, image, mask=mask.astype(np.uint8) * 255)
     return masked_image
+
+
+
 
 
 def apply_seg_mask(image, segmentation):
