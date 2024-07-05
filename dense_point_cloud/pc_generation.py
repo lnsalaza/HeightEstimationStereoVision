@@ -188,7 +188,7 @@ def generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True
             result_image_list.append(result_image)
             
         #save_image("../images/prediction_results/", result_image, "filtered_seg", False)
-        eps, min_samples = 2, 3500
+        eps, min_samples = 5, 1000
     else:
         keypoints = kp.get_keypoints(img_l)
         for i in keypoints:

@@ -132,87 +132,180 @@ def extract_situation_frames(camera_type, situation, color=True, save=True):
     else:
         raise ValueError("Situación no encontrada en el diccionario.")
 
+# Función para la creacion de un filtro logico en el centroide
+def filter_points_by_optimal_range(point_cloud, centroid, m_initial=30):
+    z_centroid = centroid[2]
+    m = m_initial  # Puedes ajustar esto si necesitas una relación más compleja
+    lower_bound = z_centroid - m
+    upper_bound = z_centroid + m
+
+    # Crear una máscara lógica para filtrar los puntos en el rango óptimo
+    mask = (point_cloud[:, 2] >= lower_bound) & (point_cloud[:, 2] <= upper_bound)
+    filtered_points = point_cloud[mask]
+
+    return filtered_points
+
+def get_Y_bounds(filtered_points):
+    if filtered_points.size == 0:
+        return None, None
+
+    y_min = np.min(filtered_points[:, 1])
+    y_max = np.max(filtered_points[:, 1])
+
+    return y_min, y_max
+
+
+
 # Flujo principal para todas las situaciones
 data = []
+data_height = []
 camera_type = 'matlab_1'
 mask_type = 'keypoint'
 is_roi = (mask_type == "roi")
-situation = "300_front"
+situation = "450_600"
 model_path = configs[camera_type]['model']
 # Cargar el modelo de regresión lineal entrenado
 model = joblib.load(model_path)
 
-# for situation in situations:
-#     try:
-#         print(f"\nProcesando situación: {situation}")
-#         (img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
-#         img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
-#         img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
+for situation in situations:
+    try:
+        print(f"\nProcesando situación: {situation}")
+        (img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
+        img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
+        img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
         
-#         disparity = pcGen.compute_disparity(img_l, img_r, configs[camera_type])
+        disparity = pcGen.compute_disparity(img_l, img_r, configs[camera_type])
 
-#         # # Generar nube de puntos densa sin filtrado adicional
-#         dense_point_cloud, dense_colors = pcGen.disparity_to_pointcloud(disparity, Q, img_l)
-#         dense_point_cloud = dense_point_cloud.astype(np.float64)
+        # # Generar nube de puntos densa sin filtrado adicional
+        dense_point_cloud, dense_colors = pcGen.disparity_to_pointcloud(disparity, Q, img_l)
+        dense_point_cloud = dense_point_cloud.astype(np.float64)
 
-#         # Corrección de nube densa 
-#         dense_point_cloud = pcGen.point_cloud_correction(dense_point_cloud, model)
+        # Corrección de nube densa 
+        dense_point_cloud = pcGen.point_cloud_correction(dense_point_cloud, model)
 
-#         base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}"
-#         pcGen.save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
+        base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}"
+        pcGen.save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
 
-#         # # Generar nube de puntos con filtrado y aplicar DBSCAN
-#         point_cloud, colors, eps, min_samples = pcGen.generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=is_roi)
+        # # Generar nube de puntos con filtrado y aplicar DBSCAN
+        # point_cloud, colors, eps, min_samples = pcGen.generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=is_roi)
 
-#         # Correción de nube no densa
-#         point_cloud = pcGen.point_cloud_correction(point_cloud, model)
-#         #centroids = pcGen.process_point_cloud(point_cloud, eps, min_samples, base_filename)
-#         original_filename = f"{base_filename}_original.ply"
-#         pcGen.save_point_cloud(point_cloud, colors, original_filename)
+        # # Correción de nube no densa
+        # point_cloud = pcGen.point_cloud_correction(point_cloud, model)
+        # #centroids = pcGen.process_point_cloud(point_cloud, eps, min_samples, base_filename)
+        # original_filename = f"{base_filename}_original.ply"
+        # pcGen.save_point_cloud(point_cloud, colors, original_filename)
+        # Generar nube de puntos con filtrado y aplicar DBSCAN
+        point_cloud_list, colors_list, eps, min_samples = pcGen.generate_filtered_point_cloud(img_l, disparity, Q, camera_type,  use_roi=is_roi)
+        counter = 0
+        heights = []
+        for pc, cl in zip(point_cloud_list, colors_list):
+            point_cloud = pcGen.point_cloud_correction(pc, model)
+            #pcGen.process_point_cloud(point_cloud, eps, min_samples, base_filename) #This is DBSCAN process
+            # colors = original_cloud_colors = np.ones_like(point_cloud) * [255, 0, 0]
+            centroids = pcGen.process_point_cloud(point_cloud, eps, min_samples, f"{base_filename}_{counter}")
+            # centroides con profundidad z= 250 (250 es la primera profundidad en donde se empiezan a ver los pies) 
+            # z(centoride) = 250 +- m (m= 30) para un rango aceptable de puntos en donde se puedan tomar puntos sin ruido en la profundidad
+            #  Se define m como un valor multiplicativo inversamente proporcional a la profundidad del centroide
+            #  (e.g: si z(centroide) = 300; m = 25 | si z(centroide) = 350; m = 20 y asi sucesivamente)
+            # TODO: encontrar el valor real de m inical
+            # Posteriormente se necesita evaluar la relacion cambiante de este factor, para esto seria necesario un ajuste lineal
+            # de la siguiente forma m_actual = a*p + b
 
-#         # z_estimations = [centroid[2] for centroid in centroids] if centroids is not None else []
-#         # data.append({
-#         #     "situation": situation,
-#         #     **{f"z_estimation_{i+1}": z for i, z in enumerate(z_estimations)}
-#         # })
+            m_initial = 30 #This is an aproximation
+            # optimal_range = [centroids[0][2] - m_initial, centroids[0][2] + m_initial]
+
+            # AQUI SE NECESITA OBTENER LOS PUNTOS DE point_cloud QUE ESTEN EN EL RAGO OPTIMO APARATIR DE LAS COORDENDAS DEL CENTROIDE
+            if len(centroids)!=0:
+                # Define el rango óptimo basado en la profundidad del primer centroide
+                filtered_points = filter_points_by_optimal_range(point_cloud, centroids[0], m_initial)
+                y_min, y_max = get_Y_bounds(filtered_points)
+                
+                if y_min is not None and y_max is not None:
+                    print(f"Para el centroide con z = {centroids[0][2]}, el rango de Y es: Y_min = {y_min}, Y_max = {y_max}")
+                    print(f"La altura de la persona {counter+1} es de {abs(y_max - y_min)}")
+                    heights.append(y_max-y_min)
+                else:
+                    print("No se encontraron puntos en el rango óptimo para este centroide.")
+        counter += 1
+        data_height.append(heights)
+        
+    
+
+        # z_estimations = [centroid[2] for centroid in centroids] if centroids is not None else []
+        # data.append({
+        #     "situation": situation,
+        #     **{f"z_estimation_{i+1}": z for i, z in enumerate(z_estimations)}
+        # })
+        heights_estimations = [height for height in heights] if heights is not None else []
+        data.append({
+            "situation": situation,
+            **{f"z_estimation_{i+1}": z for i, z in enumerate(heights_estimations)}
+        })
 
         
-#     except Exception as e:
-#         print(f"Error procesando {situation}: {e}")
+    except Exception as e:
+        print(f"Error procesando {situation}: {e}")
 
 
 # Flujo principal
-try:
-    (img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
-    img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
-    img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
 
-    disparity = pcGen.compute_disparity(img_l, img_r, configs[camera_type])
+# (img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
+# img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
+# img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
 
-    # Generar nube de puntos densa sin filtrado adicional
-    dense_point_cloud, dense_colors = pcGen.disparity_to_pointcloud(disparity, Q, img_l)
-    dense_point_cloud = dense_point_cloud.astype(np.float64)
-    dense_point_cloud = pcGen.point_cloud_correction(dense_point_cloud, model)
-    base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}"
-    if not os.path.exists(os.path.dirname(base_filename)):
-        os.makedirs(os.path.dirname(base_filename))
-    pcGen.save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
+# disparity = pcGen.compute_disparity(img_l, img_r, configs[camera_type])
 
-    # Generar nube de puntos con filtrado y aplicar DBSCAN
-    point_cloud_list, colors_list, eps, min_samples = pcGen.generate_filtered_point_cloud(img_l, disparity, Q, camera_type,  use_roi=is_roi)
-    counter = 0
-    for pc, cl in zip(point_cloud_list, colors_list):
-        point_cloud = pcGen.point_cloud_correction(pc, model)
-        #pcGen.process_point_cloud(point_cloud, eps, min_samples, base_filename) #This is DBSCAN process
-        original_filename = f"{base_filename}_original_{counter}.ply"
-        # colors = original_cloud_colors = np.ones_like(point_cloud) * [255, 0, 0]
-        pcGen.save_point_cloud(point_cloud, cl, original_filename)
-        counter = 1 + counter
+# # Generar nube de puntos densa sin filtrado adicional
+# dense_point_cloud, dense_colors = pcGen.disparity_to_pointcloud(disparity, Q, img_l)
+# dense_point_cloud = dense_point_cloud.astype(np.float64)
+# dense_point_cloud = pcGen.point_cloud_correction(dense_point_cloud, model)
 
-    # point_cloud, colors = pcGen.roi_no_dense_pc(img_l,disparity,Q)
-    # print(point_cloud, colors)
-except Exception as e:
-    print(f"Error procesando {situation}: {e}")
+# base_filename = f"./point_clouds/prueba/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}_height"
+
+# if not os.path.exists(os.path.dirname(base_filename)):
+#     os.makedirs(os.path.dirname(base_filename))
+# pcGen.save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
+
+# # Generar nube de puntos con filtrado y aplicar DBSCAN
+# point_cloud_list, colors_list, eps, min_samples = pcGen.generate_filtered_point_cloud(img_l, disparity, Q, camera_type,  use_roi=is_roi)
+# counter = 0
+# for pc, cl in zip(point_cloud_list, colors_list):
+#     point_cloud = pcGen.point_cloud_correction(pc, model)
+#     #pcGen.process_point_cloud(point_cloud, eps, min_samples, base_filename) #This is DBSCAN process
+#     # colors = original_cloud_colors = np.ones_like(point_cloud) * [255, 0, 0]
+#     centroids = pcGen.process_point_cloud(point_cloud, eps, min_samples, f"{base_filename}_{counter}")
+#     # centroides con profundidad z= 250 (250 es la primera profundidad en donde se empiezan a ver los pies) 
+#     # z(centoride) = 250 +- m (m= 30) para un rango aceptable de puntos en donde se puedan tomar puntos sin ruido en la profundidad
+#     #  Se define m como un valor multiplicativo inversamente proporcional a la profundidad del centroide
+#     #  (e.g: si z(centroide) = 300; m = 25 | si z(centroide) = 350; m = 20 y asi sucesivamente)
+#     # TODO: encontrar el valor real de m inical
+#     # Posteriormente se necesita evaluar la relacion cambiante de este factor, para esto seria necesario un ajuste lineal
+#     # de la siguiente forma m_actual = a*p + b
+
+#     m_initial = 30 #This is an aproximation
+#     # optimal_range = [centroids[0][2] - m_initial, centroids[0][2] + m_initial]
+
+#     # AQUI SE NECESITA OBTENER LOS PUNTOS DE point_cloud QUE ESTEN EN EL RAGO OPTIMO APARATIR DE LAS COORDENDAS DEL CENTROIDE
+#     if len(centroids)!=0:
+#         # Define el rango óptimo basado en la profundidad del primer centroide
+#         filtered_points = filter_points_by_optimal_range(point_cloud, centroids[0], m_initial)
+#         y_min, y_max = get_Y_bounds(filtered_points)
+        
+#         if y_min is not None and y_max is not None:
+#             print(f"Para el centroide con z = {centroids[0][2]}, el rango de Y es: Y_min = {y_min}, Y_max = {y_max}")
+#             print(f"La altura de la persona {counter+1} es de {abs(y_max - y_min)*3.3240580662785524}")
+#         else:
+#             print("No se encontraron puntos en el rango óptimo para este centroide.")
+    
+    
+
+
+#     #original_filename = f"{base_filename}_original_{counter}.ply"
+#     #pcGen.save_point_cloud(point_cloud, cl, original_filename)
+#     counter += 1
+
+# point_cloud, colors = pcGen.roi_no_dense_pc(img_l,disparity,Q)
+# print(point_cloud, colors)
 
 ################################################ GUARDAR DATASET ###############################################################
 

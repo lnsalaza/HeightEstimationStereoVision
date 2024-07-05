@@ -119,7 +119,7 @@ def calibrate_images(input_path, output_path, xml_file):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Calibrate video frames using stereo camera maps.")
-    parser.add_argument("--input_type", type=str, default=INPUT_TYPE, help="\"video\", if input is a video. \"image\", if inputs are images.")
+    parser.add_argument("--input_type", type=str, default=INPUT_TYPE, help="\"video\", if input is a video. \"image\", if inputs are images. Default: \"video\".")
     parser.add_argument("--input_left", type=str, default=LEFT_INPUT_VIDEO_PATH, help="Left input video file path.")
     parser.add_argument("--input_right", type=str, default=RIGHT_INPUT_VIDEO_PATH, help="Right input video file path.")
     parser.add_argument("--output_left", type=str, default=LEFT_OUTPUT_VIDEO_PATH, help="Left output video file path.")

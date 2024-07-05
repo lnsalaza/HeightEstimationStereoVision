@@ -5,7 +5,7 @@ def visualize_sparse_point_cloud(pcd_file, centroid_file=None):
 
     # Leer la nube de puntos y los centroides
     pcd = o3d.io.read_point_cloud(pcd_file)
-    #centroid_cloud = o3d.io.read_point_cloud(centroid_file)
+    centroid_cloud = o3d.io.read_point_cloud(centroid_file)
     origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10, origin=[0,0,0])
 
     # Obtener el Axis-Aligned Bounding Box (AABB)
@@ -21,7 +21,9 @@ def visualize_sparse_point_cloud(pcd_file, centroid_file=None):
     viewer.create_window()
 
     # Visualizar las geometrías
-    o3d.visualization.draw_geometries([pcd, origin, aabb])
+    #o3d.visualization.draw_geometries([pcd, origin, aabb])
+    o3d.visualization.draw_geometries([pcd, centroid_cloud, origin, aabb])
+
 
     # Destruir la ventana del visualizador
     viewer.destroy_window()
@@ -118,27 +120,27 @@ if __name__ == "__main__":
 
     config = "matlab_1"
     mask = "keypoint"
-    situacion = "300_front"
+    situacion = "250_600"
 
-    filepath = f"./point_clouds/{config}/{mask}_disparity/{config}_{situacion}"
+    filepath = f"./point_clouds/prueba/{config}/{mask}_disparity/{config}_{situacion}"
 
     # Visualización de la nube de puntos densa
     dense_pcd_file = f"{filepath}_dense.ply"
  
-    #visualize_dense_point_cloud(dense_pcd_file)
+    visualize_dense_point_cloud(dense_pcd_file)
 
     
     # Visualización de la nube de puntos dispersa
-    sparse_pcd_file = f"{filepath}_original_0.ply"
-    # centroid_file = f"./point_clouds/{folder}/{situacion}_centroids.ply"
-    
+    sparse_pcd_file = f"{filepath}_0_original.ply"
+    centroid_file = f"{filepath}_0_centroids.ply"
+    #visualize_dense_point_cloud(sparse_pcd_file)
     # Imprimir coordenadas Z de los centroides
     # print_centroid_z_coordinates(centroid_file)
 
     
     # Visualizar la nube de puntos dispersa
-    visualize_sparse_point_cloud(sparse_pcd_file)
-    
     #visualize_sparse_point_cloud(sparse_pcd_file)
-    #visualize_sparse_point_cloud(dense_pcd_file, sparse_pcd_file)
+    
+    visualize_sparse_point_cloud(sparse_pcd_file, centroid_file)
+    #visualize_sparse_point_cloud(sparse_pcd_file)
     
