@@ -2,3 +2,4 @@ kp_extraction/runs/
 *.avi
 *.pt
 *.ply
+*.pth

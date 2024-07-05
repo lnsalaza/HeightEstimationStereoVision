@@ -8,8 +8,10 @@ import pc_generation as pcGen
 # Definición de los videos y matrices de configuración
 configs = {
     'matlab_1': {
-        'LEFT_VIDEO': '../videos/rectified/matlab_1/left_rectified.avi',
-        'RIGHT_VIDEO': '../videos/rectified/matlab_1/right_rectified.avi',
+        # 'LEFT_VIDEO': '../videos/rectified/matlab_1/left_rectified.avi',
+        # 'RIGHT_VIDEO': '../videos/rectified/matlab_1/right_rectified.avi',
+        'LEFT_VIDEO': '../videos/rectified/matlab_1/16_35_42_26_02_2024_VID_LEFT.avi',
+        'RIGHT_VIDEO': '../videos/rectified/matlab_1/16_35_42_26_02_2024_VID_RIGHT.avi',
         'MATRIX_Q': '../config_files/matlab_1/newStereoMap.xml',
         'disparity_to_depth_map': 'disparity2depth_matrix',
         'model': "../datasets/models/z_estimation_matlab_1_keypoint_ln_model.pkl",
@@ -84,6 +86,36 @@ situations = {
     '600_oneside_variant': 3150
 }
 
+# situations= {
+#     "L_0": 250,
+#     "L_1": 260,
+#     "L_2": 270,
+#     "L_3": 280,
+#     "L_4": 290,
+#     "L_5": 300,
+#     "L_6": 310,
+#     "L_7": 320,
+#     "L_8": 330,
+#     "L_9": 340,
+#     "L_10": 350,
+#     "L_11": 360,
+#     "L_12": 370
+#}
+# situations= {
+#     "I_0":1000,
+#     "I_1":1010,
+#     "I_2":1020,
+#     "I_3":1030,
+#     "I_4":1040,
+#     "I_5":1050,
+#     "I_6":1060,
+#     "I_7":1070,
+#     "I_8":1080,
+#     "I_9":1090,
+#     "I_10":1100,
+#     "I_11":1110,
+#     "I_12":1120,
+# }
 
 # Función para seleccionar configuración de cámara
 def select_camera_config(camera_type):
@@ -166,9 +198,9 @@ situation = "450_600"
 model_path = configs[camera_type]['model']
 # Cargar el modelo de regresión lineal entrenado
 model = joblib.load(model_path)
-
-for situation in situations:
-    try:
+try:
+    for situation in situations:
+    
         print(f"\nProcesando situación: {situation}")
         (img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
         img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
@@ -226,7 +258,7 @@ for situation in situations:
                     heights.append(y_max-y_min)
                 else:
                     print("No se encontraron puntos en el rango óptimo para este centroide.")
-        counter += 1
+            counter += 1
         data_height.append(heights)
         
     
@@ -236,15 +268,15 @@ for situation in situations:
         #     "situation": situation,
         #     **{f"z_estimation_{i+1}": z for i, z in enumerate(z_estimations)}
         # })
-        heights_estimations = [height for height in heights] if heights is not None else []
-        data.append({
-            "situation": situation,
-            **{f"z_estimation_{i+1}": z for i, z in enumerate(heights_estimations)}
-        })
+        # heights_estimations = [height for height in heights] if heights is not None else []
+        # data.append({
+        #     "situation": situation,
+        #     **{f"z_estimation_{i+1}": z for i, z in enumerate(heights_estimations)}
+        # })
 
         
-    except Exception as e:
-        print(f"Error procesando {situation}: {e}")
+except Exception as e:
+    print(f"Error procesando {situation}: {e}")    
 
 
 # Flujo principal

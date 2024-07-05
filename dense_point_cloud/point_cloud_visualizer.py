@@ -94,7 +94,7 @@ def visualize_dense_point_cloud(pcd_file):
     #viewer.add_geometry(pcd)
     viewer.add_geometry(cropped_pcd)
     viewer.add_geometry(origin)
-    viewer.add_geometry(mark_lines)
+    # viewer.add_geometry(mark_lines)
     # Configurar opciones de renderizado
     opt = viewer.get_render_option()
     opt.point_size = 1
@@ -120,14 +120,17 @@ if __name__ == "__main__":
 
     config = "matlab_1"
     mask = "keypoint"
-    situacion = "250_600"
+    situacion = "L_10_1"
 
-    filepath = f"./point_clouds/prueba/{config}/{mask}_disparity/{config}_{situacion}"
+    # filepath = f"./point_clouds/{config}/{mask}_disparity/{config}_{situacion}"
+    # filepath = f"./point_clouds/video/L/{config}/{mask}_disparity/{config}_{situacion}"
+
+    filepath = "./point_clouds/video/L/matlab_1/keypoint_disparity/matlab_1_L_0_dense.ply"
 
     # Visualización de la nube de puntos densa
     dense_pcd_file = f"{filepath}_dense.ply"
  
-    visualize_dense_point_cloud(dense_pcd_file)
+    visualize_dense_point_cloud(filepath)
 
     
     # Visualización de la nube de puntos dispersa
@@ -141,6 +144,9 @@ if __name__ == "__main__":
     # Visualizar la nube de puntos dispersa
     #visualize_sparse_point_cloud(sparse_pcd_file)
     
-    visualize_sparse_point_cloud(sparse_pcd_file, centroid_file)
+    # visualize_sparse_point_cloud(sparse_pcd_file, centroid_file)
     #visualize_sparse_point_cloud(sparse_pcd_file)
     
+
+
+
