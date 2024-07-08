@@ -135,12 +135,12 @@ df_front = df_processed[df_processed["situation"].str.contains("front")]
 lr_model = joblib.load("models/z_estimation_matlab_1_keypoint_ln_model_LASER.pkl")
 
 df_gt_processed["z_corrected"] =  lr_model.predict(df_gt_processed[["z_estimation_1"]].values.reshape(-1,1))
-df_gt_processed["error"] = df_gt_processed["z_true"] - df_gt_processed["z_corrected"]
+df_gt_processed["error"] = (abs(df_gt_processed["z_corrected"] - df_gt_processed["z_true"])*100)/df_gt_processed["z_true"]
 
 print(df_processed)
 print('-----------------------------------------------------------------------------')
 print(df_gt_processed)
-
+print(np.mean(df_gt_processed['error'][:7]))
 # VALIDATION
 df_variant = df_processed[df_processed["situation"].str.contains("variant")]
 
