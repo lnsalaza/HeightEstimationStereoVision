@@ -6,11 +6,13 @@ import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 
 # file_name = "z_estimation_opencv_1_keypoint5"
-folder = "matlab_3" 
+folder = "matlab_1" 
 file_name = f"z_estimation_{folder}_keypoint" 
 # file_name = "z_estimation_matlab_kp_cm" 
 
 df = pd.read_csv(f"data/{folder}/{file_name}.csv")
+df_gt = pd.read_csv(f"data/{folder}/ground_truth/{file_name}.csv")
+
 # df = pd.read_csv(f"steven/{file_name}.csv")
 # df = pd.read_csv("z_estimation_old_keypoints_no_astype_no_norm.csv")
 
@@ -88,11 +90,12 @@ def process_dataframe(df):
     
     # Concatenar las nuevas filas al dataframe original (sin las filas que ya fueron procesadas)
     df_result = pd.concat([df, df_new_rows], ignore_index=True)
-    
     return df_result
 
 
 df["z_true"] = df["situation"].apply(extract_z_true)
+
+
 
 # # TRAINING
 # df_front = df[df["situation"].str.contains("front")]
@@ -117,6 +120,10 @@ df_processed = process_dataframe(df)
 df_processed["z_true"] = df_processed["situation"].apply(extract_z_true)
 df_processed = df_processed.sort_values(["z_true"])
 
+df_gt_processed = process_dataframe(df_gt)
+df_gt_processed["z_true"] = df_gt_processed["situation"].apply(extract_z_true)
+df_gt_processed = df_gt_processed.sort_values(["z_true"])
+
 
 # TRAINING
 df_front = df_processed[df_processed["situation"].str.contains("front")]
@@ -124,11 +131,15 @@ df_front = df_processed[df_processed["situation"].str.contains("front")]
 
 # df_variant["z_corrected"] = df_variant["z_true"].apply(apply_linear_correction)
 
-lr_model = apply_linear_regresion(df_front, "z_estimation_1", "z_true")
-df_processed["z_corrected"] =  lr_model.predict(df_processed[["z_estimation_1"]].values.reshape(-1,1))
-df_processed["error"] = df_processed["z_true"] - df_processed["z_corrected"]
+#lr_model = apply_linear_regresion(df_processed, "z_estimation_1", "z_true")
+lr_model = joblib.load("models/z_estimation_matlab_1_keypoint_ln_model_LASER.pkl")
+
+df_gt_processed["z_corrected"] =  lr_model.predict(df_gt_processed[["z_estimation_1"]].values.reshape(-1,1))
+df_gt_processed["error"] = df_gt_processed["z_true"] - df_gt_processed["z_corrected"]
 
 print(df_processed)
+print('-----------------------------------------------------------------------------')
+print(df_gt_processed)
 
 # VALIDATION
 df_variant = df_processed[df_processed["situation"].str.contains("variant")]
@@ -154,19 +165,27 @@ def save_plot(df, original, path):
     plt.savefig(path)
     # plt.savefig(f"./steven/graficas/original_{file_name}.png")
 
+# ###########################################ORIGINAL#####################################
+
+# save_plot(df_front, True, f"./graficas/{folder}/original_{file_name}.png")
+
+# ###########################################CORRECTED#####################################
+
+# save_plot(df_variant, False, f"./graficas/{folder}/corrected_{file_name}.png")
+
+# ########################################### ORIGINAL COMPLETE #####################################
+
+# save_plot(df_processed, True, f"./graficas/{folder}/original_{file_name}_complete.png")
+
+# ########################################### CORRECTED COMPLETE #####################################
+
+# save_plot(df_processed, False, f"./graficas/{folder}/corrected_{file_name}_complete.png")
+
 ###########################################ORIGINAL#####################################
 
-save_plot(df_front, True, f"./graficas/{folder}/original_{file_name}.png")
+save_plot(df_processed, True, f"./graficas/{folder}/ground_truth/original_{file_name}.png")
 
 ###########################################CORRECTED#####################################
 
-save_plot(df_variant, False, f"./graficas/{folder}/corrected_{file_name}.png")
-
-########################################### ORIGINAL COMPLETE #####################################
-
-save_plot(df_processed, True, f"./graficas/{folder}/original_{file_name}_complete.png")
-
-########################################### CORRECTED COMPLETE #####################################
-
-save_plot(df_processed, False, f"./graficas/{folder}/corrected_{file_name}_complete.png")
+save_plot(df_gt_processed, False, f"./graficas/{folder}/ground_truth/corrected_{file_name}.png")
 
