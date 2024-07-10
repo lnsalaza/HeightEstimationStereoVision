@@ -10,9 +10,8 @@ folder = "matlab_1"
 file_name = f"z_estimation_{folder}_keypoint" 
 # file_name = "z_estimation_matlab_kp_cm" 
 
-df = pd.read_csv(f"data/{folder}/{file_name}.csv")
-df_gt = pd.read_csv(f"data/{folder}/ground_truth/{file_name}.csv")
-
+df = pd.read_csv(f"data/{folder}/ground_truth/{file_name}.csv") 
+df_gt = pd.read_csv(f"data/{file_name}_validation.csv")
 # df = pd.read_csv(f"steven/{file_name}.csv")
 # df = pd.read_csv("z_estimation_old_keypoints_no_astype_no_norm.csv")
 
@@ -126,13 +125,13 @@ df_gt_processed = df_gt_processed.sort_values(["z_true"])
 
 
 # TRAINING
-df_front = df_processed[df_processed["situation"].str.contains("front")]
+# df_front = df_processed[df_processed["situation"].str.contains("front")]
 
 
 # df_variant["z_corrected"] = df_variant["z_true"].apply(apply_linear_correction)
 
-#lr_model = apply_linear_regresion(df_processed, "z_estimation_1", "z_true")
-lr_model = joblib.load("models/z_estimation_matlab_1_keypoint_ln_model_LASER.pkl")
+lr_model = apply_linear_regresion(df_processed, "z_estimation_1", "z_true")
+# lr_model = joblib.load("models/z_estimation_matlab_1_keypoint_ln_model_LASER.pkl")
 
 df_gt_processed["z_corrected"] =  lr_model.predict(df_gt_processed[["z_estimation_1"]].values.reshape(-1,1))
 df_gt_processed["error"] = (abs(df_gt_processed["z_corrected"] - df_gt_processed["z_true"])*100)/df_gt_processed["z_true"]

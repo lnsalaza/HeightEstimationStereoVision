@@ -21,7 +21,8 @@ segmentation = YOLO('yolov8n-seg.pt').to(device=device)  # load an official mode
 
 # Extract results
 def get_keypoints(source):
-    results = pose(source=source, show=False, save = True, conf=0.8)[0] 
+    results = pose(source=source, show=False, save = True, conf=0.67)[0]
+    print(f"Probabilidades: {results.boxes.conf}") 
     keypoints = np.array(results.keypoints.xy.cpu())
     return keypoints
 
