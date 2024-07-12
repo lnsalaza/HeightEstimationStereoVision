@@ -5,7 +5,7 @@ import string
 import joblib
 import numpy as np
 import pc_generation as pcGen
-
+import matplotlib.pyplot as plt
 # Definición de los videos y matrices de configuración
 configs = {
     'matlab_1': {
@@ -15,7 +15,7 @@ configs = {
         'RIGHT_VIDEO': '../videos/rectified/matlab_1/16_35_42_26_02_2024_VID_RIGHT.avi',
         'MATRIX_Q': '../config_files/matlab_1/newStereoMap.xml',
         'disparity_to_depth_map': 'disparity2depth_matrix',
-        'model': "../datasets/models/z_estimation_matlab_1_keypoint_ln_model.pkl",
+        'model': "../datasets/models/matlab_1/height_lr.pkl",
         'numDisparities': 68,
         'blockSize': 7, 
         'minDisparity': 5,
@@ -222,6 +222,34 @@ def read_image_pairs_by_distance(base_folder):
     
     return image_pairs_by_distance
 
+def graficar_alturas(alturas_estimadas, altura_minima, altura_maxima):
+    """
+    Función para graficar alturas estimadas.
+
+    :param alturas_estimadas: Lista de alturas estimadas.
+    :param altura_minima: Valor mínimo del rango de altura.
+    :param altura_maxima: Valor máximo del rango de altura.
+    """
+    # Creación de la figura y los ejes
+    fig, ax = plt.subplots()
+
+    # Gráfico de la línea de alturas estimadas
+    ax.plot(alturas_estimadas, marker='o', linestyle='-', color='b')
+
+    # Configuración de los límites de los ejes
+    ax.set_xlim(0, len(alturas_estimadas) - 1)
+    ax.set_ylim(altura_minima, altura_maxima)
+
+    # Etiquetas de los ejes
+    ax.set_xlabel('Índice de la medición')
+    ax.set_ylabel('Altura estimada (cm)')
+
+    # Título de la gráfica
+    ax.set_title('Comportamiento de las alturas estimadas')
+
+    plt.savefig("IMG_alturas")
+    plt.close()
+
 
 # Flujo principal para todas las situaciones
 data = []
@@ -378,8 +406,12 @@ model = joblib.load(model_path)
 
 
 ################################################################################################################################
-pairs = read_image_pairs_by_distance('../images/calibration_results/matlab_1/validation')
+pairs = read_image_pairs_by_distance('../images/calibration_results/matlab_1/chessboard')
 alphabet = string.ascii_lowercase
+alturas = []
+
+
+
 for situation, variations in pairs.items():
     try:
 
@@ -405,9 +437,11 @@ for situation, variations in pairs.items():
             dense_point_cloud = dense_point_cloud.astype(np.float64)
 
             # Corrección de nube densa 
-            # dense_point_cloud = pcGen.point_cloud_correction(dense_point_cloud, model)
+            #dense_point_cloud = pcGen.point_cloud_correction(dense_point_cloud, model)
 
+            # base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}_{letter}_corrected"
             base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}_{letter}"
+
             pcGen.save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
 
             # # Generar nube de puntos con filtrado y aplicar DBSCAN
@@ -423,7 +457,7 @@ for situation, variations in pairs.items():
             counter = 0
             heights = []
             for pc, cl in zip(point_cloud_list, colors_list):
-                # pc = pcGen.point_cloud_correction(pc, model)
+                #pc = pcGen.point_cloud_correction(pc, model)
                 #pcGen.process_point_cloud(point_cloud, eps, min_samples, base_filename) #This is DBSCAN process
                 # colors = original_cloud_colors = np.ones_like(point_cloud) * [255, 0, 0]
                 centroids = pcGen.process_point_cloud(pc, eps, min_samples, f"{base_filename}_person{counter}")
@@ -442,42 +476,46 @@ for situation, variations in pairs.items():
                         print(f"Para el centroide con z = {centroids[0][2]}, el rango de Y es: Y_min = {y_min}, Y_max = {y_max}")
                         print(f"La altura de la persona {counter+1} es de {abs(y_max - y_min)}")
                         heights.append(y_max-y_min)
+                        alturas.append(y_max-y_min)
                     else:
                         print("No se encontraron puntos en el rango óptimo para este centroide.")
                 counter += 1
                 print(centroids)
-
-                z_estimations = [centroid[2] for centroid in centroids] if centroids is not None else []
-                data.append({
-                    "situation": situation + "_" + letter,
-                    **{f"z_estimation_{i+1}": z for i, z in enumerate(z_estimations)}
-                })
+            
+                # z_estimations = [centroid[2] for centroid in centroids] if centroids is not None else []
+                # data.append({
+                #     "situation": situation + "_" + letter,
+                #     **{f"z_estimation_{i+1}": z for i, z in enumerate(z_estimations)}
+                # })
             data_height.append(heights)
             
             
-            # heights_estimations = [height for height in heights] if heights is not None else []
-            # data.append({
-            #     "situation": situation,
-            #     **{f"z_estimation_{i+1}": z for i, z in enumerate(heights_estimations)}
-            # })
-        
+            heights_estimations = [height for height in heights] if heights is not None else []
+            data.append({
+                "situation": situation + "_" + letter,
+                **{f"h_estimation_{i+1}": z for i, z in enumerate(heights_estimations)}
+            })
+          
     except Exception as e:
         print(f"Error procesando {situation}: {e}")    
 
-
+# alturas = [157.43612581866932, 156.8095422592475, 156.9406790662916, 157.95365574074827, 153.05819018710446, 154.19328141790845, 153.0152661459107, 152.15594113483553, 171.21962589737763, 171.32145118182308, 168.36932374795845, 169.9956647777326, 177.31622114412914, 180.37798739055467, 175.49163042493484, 175.55732353792962, 130.6788474795684, 129.96779483673578, 128.13854669838858, 130.5648414372045, 137.6453896269049, 138.2043374834691, 138.98497561379958, 138.83201464903598, 154.43072825389646, 155.83258743632342, 153.78167300680082, 154.0236285698781, 135.58037823045095, 136.37961246176573, 135.95496231772637, 134.0220086598071, 185.15909915426658, 184.68129879227348, 183.25861312790846, 183.87008285854478, 146.78258888187133, 146.6510012021183, 141.85468447577546, 140.32748268026592, 192.21032622833195, 192.91321279896297, 188.991181423899, 190.16987780147835]
+# graficar_alturas(alturas, 0, 250) 
 
 ################################################ GUARDAR DATASET ###############################################################
 
 if len(data) > 0:
     # Guardar dataset como CSV
-    dataset_path = f"../datasets/data/z_estimation_{camera_type}_{mask_type}_validation.csv"
+    dataset_path = f"../datasets/data/z_estimation_{camera_type}_{mask_type}_heights_train.csv"
 
     if not os.path.exists(os.path.dirname(dataset_path)):
         os.makedirs(os.path.dirname(dataset_path))
 
     max_z_count = max(len(row) - 1 for row in data) # -1 porque situation no es una columna z_estimation
 
-    fieldnames = ["situation"] + [f"z_estimation_{i+1}" for i in range(max_z_count)]
+    # fieldnames = ["situation"] + [f"z_estimation_{i+1}" for i in range(max_z_count)]
+    fieldnames = ["situation"] + [f"h_estimation_{i+1}" for i in range(max_z_count)]
+
 
     with open(dataset_path, "w", newline='') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -486,3 +524,7 @@ if len(data) > 0:
         for row in data:
             writer.writerow(row)
     print(f"Dataset guardado en {dataset_path}")
+
+
+
+

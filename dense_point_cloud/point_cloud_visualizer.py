@@ -120,32 +120,25 @@ if __name__ == "__main__":
 
     config = "matlab_1"
     mask = "keypoint"
-    situacion = "L_10_1"
+    situacion = "150_a_corrected"
 
-    # filepath = f"./point_clouds/{config}/{mask}_disparity/{config}_{situacion}"
-    # filepath = f"./point_clouds/video/L/{config}/{mask}_disparity/{config}_{situacion}"
-
-    filepath = "./point_clouds/video/L/matlab_1/keypoint_disparity/matlab_1_L_0_dense.ply"
+    filepath = f"./point_clouds/{config}/{mask}_disparity/{config}_{situacion}"
 
     # Visualización de la nube de puntos densa
     dense_pcd_file = f"{filepath}_dense.ply"
- 
-    visualize_dense_point_cloud(filepath)
+    visualize_dense_point_cloud(dense_pcd_file)
 
     
     # Visualización de la nube de puntos dispersa
-    sparse_pcd_file = f"{filepath}_0_original.ply"
-    centroid_file = f"{filepath}_0_centroids.ply"
-    #visualize_dense_point_cloud(sparse_pcd_file)
+    sparse_pcd_file = f"{filepath}_person0_original.ply"
+    centroid_file = f"{filepath}_person0_centroids.ply"
+
     # Imprimir coordenadas Z de los centroides
     # print_centroid_z_coordinates(centroid_file)
-
     
     # Visualizar la nube de puntos dispersa
-    #visualize_sparse_point_cloud(sparse_pcd_file)
-    
-    # visualize_sparse_point_cloud(sparse_pcd_file, centroid_file)
-    #visualize_sparse_point_cloud(sparse_pcd_file)
+    visualize_sparse_point_cloud(sparse_pcd_file, centroid_file)
+
     
 
 

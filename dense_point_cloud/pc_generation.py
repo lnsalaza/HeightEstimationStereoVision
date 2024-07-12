@@ -199,7 +199,7 @@ def generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True
         
         #save_image("../images/prediction_results/", result_image, "filtered_keypoints", False)
 
-        eps = 50 if "matlab" in camera_type else 10
+        eps = 100 if "matlab" in camera_type else 10
         min_samples = 6
 
     for mask in result_image_list:
@@ -245,13 +245,20 @@ def roi_source_point_cloud(img_l, img_r, Q):
 def point_cloud_correction(points, model):
     points = np.asarray(points)
 
-    Xy = points[:,:2]
+    # Xy = points[:,:2]
+    x = points[:, 0].reshape(-1,1)
+    x_pred = model.predict(x)
+    y = points[:, 1].reshape(-1,1)
+    y_pred = model.predict(y)
     # Predecir las coordenadas Z corregidas usando el modelo
-    z = points[:, 2].reshape(-1,1)  # Tomar solo las coordenadas X, y
+    z = points[:, 2].reshape(-1,1)  # Tomar solo las coordenadas z
     z_pred = model.predict(z)
+
     
     # Actualizar las coordenadas Z de la nube de puntos con las predicciones corregidas
-    corrected_points = np.column_stack((Xy, z_pred))
+    # corrected_points = np.column_stack((Xy, z_pred))
+    corrected_points = np.column_stack((x_pred,y_pred, z_pred))
+
     return corrected_points
 
 

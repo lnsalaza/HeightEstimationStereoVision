@@ -1,3 +1,4 @@
+import os
 import csv
 import numpy as np
 import pandas as pd
@@ -10,12 +11,47 @@ folder = "matlab_1"
 file_name = f"z_estimation_{folder}_keypoint" 
 # file_name = "z_estimation_matlab_kp_cm" 
 
-df = pd.read_csv(f"data/{folder}/ground_truth/{file_name}.csv") 
+df = pd.read_csv(f"data/{folder}/ground_truth/{file_name}_training.csv") 
 df_gt = pd.read_csv(f"data/{file_name}_validation.csv")
+df_alturas_train = pd.read_csv(f"data/{file_name}_heights_train.csv")
+df_alturas_train = df_alturas_train.sort_values(["situation"]).reset_index(drop=True)
+df_alturas_val = pd.read_csv(f"data/{file_name}_heights_val.csv")
+df_alturas_val = df_alturas_val.sort_values(["situation"]).reset_index(drop=True)
 # df = pd.read_csv(f"steven/{file_name}.csv")
 # df = pd.read_csv("z_estimation_old_keypoints_no_astype_no_norm.csv")
 
-df = pd.DataFrame(df)
+def graficar_alturas(df, altura_minima, altura_maxima):
+    """
+    Función para graficar alturas estimadas.
+
+    :param alturas_estimadas: Lista de alturas estimadas.
+    :param altura_minima: Valor mínimo del rango de altura.
+    :param altura_maxima: Valor máximo del rango de altura.
+    """
+    alturas_estimadas = df["h_estimation_1"]
+    # Creación de la figura y los ejes
+    fig, ax = plt.subplots()
+
+    # Gráfico de la línea de alturas estimadas
+    ax.plot(alturas_estimadas, marker='o', linestyle='-', color='b')
+
+    # Configuración de los límites de los ejes
+    
+    ax.set_xlim(0, len(alturas_estimadas) - 1)
+    ax.set_ylim(altura_minima, altura_maxima)
+
+    # Etiquetas de los ejes
+    ax.set_xlabel('Situacion')
+    ax.set_ylabel('Altura estimada (cm)')
+
+    ax.set_xticks(range(len(df["situation"])))
+    ax.set_xticklabels(df["situation"], rotation=90, ha="right")
+
+    # Título de la gráfica
+    ax.set_title('Comportamiento de las alturas estimadas')
+    plt.tight_layout()
+    plt.savefig("IMG_alturas")
+    plt.close()
 
 def extract_z_true(situation):
     return int(situation.split("_")[0])
@@ -42,14 +78,17 @@ def linearCorrection(model, value):
     corrected_value = model.predict(np.array([[value]]))
     return corrected_value[0][0]
 
-def apply_linear_regresion(df, col_x, col_y):
+def apply_linear_regresion(df, col_x, col_y, filename):
     X = df[[col_x]].values.reshape(-1,1)
     Y = df[col_y].values
 
     modelo = LinearRegression()
     modelo.fit(X,Y)
     modelo.predict(X)
-    filename = f'models/{file_name}_ln_model.pkl'
+    filename = f'models/{filename}.pkl'
+
+    if not os.path.exists(os.path.dirname(filename)):
+        os.makedirs(os.path.dirname(filename))
     joblib.dump(modelo, filename)
     return modelo
 
@@ -130,16 +169,21 @@ df_gt_processed = df_gt_processed.sort_values(["z_true"])
 
 # df_variant["z_corrected"] = df_variant["z_true"].apply(apply_linear_correction)
 
-lr_model = apply_linear_regresion(df_processed, "z_estimation_1", "z_true")
+lr_model = apply_linear_regresion(df_processed, "z_estimation_1", "z_true", f'{folder}/z_lr')
 # lr_model = joblib.load("models/z_estimation_matlab_1_keypoint_ln_model_LASER.pkl")
 
 df_gt_processed["z_corrected"] =  lr_model.predict(df_gt_processed[["z_estimation_1"]].values.reshape(-1,1))
 df_gt_processed["error"] = (abs(df_gt_processed["z_corrected"] - df_gt_processed["z_true"])*100)/df_gt_processed["z_true"]
 
-print(df_processed)
 print('-----------------------------------------------------------------------------')
-print(df_gt_processed)
 print(np.mean(df_gt_processed['error'][:7]))
+print('-----------------------------------------------------------------------------')
+df_alturas_train["h_true"] = 173
+df_alturas_val["h_true"] = 173
+h_model = apply_linear_regresion(df_alturas_train, "h_estimation_1", "h_true", f'{folder}/height_lr')
+df_alturas_val["h_corrected"] = h_model.predict(df_alturas_val[["h_estimation_1"]].values.reshape(-1,1))
+df_alturas_val["error"] = (abs(df_alturas_val["h_corrected"] - df_alturas_val["h_true"])*100)/df_alturas_val["h_true"]
+print(df_alturas_val)
 # VALIDATION
 df_variant = df_processed[df_processed["situation"].str.contains("variant")]
 
@@ -182,9 +226,10 @@ def save_plot(df, original, path):
 
 ###########################################ORIGINAL#####################################
 
-save_plot(df_processed, True, f"./graficas/{folder}/ground_truth/original_{file_name}.png")
+# save_plot(df_processed, True, f"./graficas/{folder}/ground_truth/original_{file_name}.png")
 
-###########################################CORRECTED#####################################
+# ###########################################CORRECTED#####################################
 
-save_plot(df_gt_processed, False, f"./graficas/{folder}/ground_truth/corrected_{file_name}.png")
+# save_plot(df_gt_processed, False, f"./graficas/{folder}/ground_truth/corrected_{file_name}.png")
 
+graficar_alturas(df_alturas_train, 0, 250)
