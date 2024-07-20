@@ -15,7 +15,7 @@ configs = {
         'RIGHT_VIDEO': '../videos/rectified/matlab_1/16_35_42_26_02_2024_VID_RIGHT.avi',
         'MATRIX_Q': '../config_files/matlab_1/newStereoMap.xml',
         'disparity_to_depth_map': 'disparity2depth_matrix',
-        'model': "../datasets/models/matlab_1/height_lr.pkl",
+        'model': "../datasets/models/matlab_1/z_lr.pkl",
         'numDisparities': 68,
         'blockSize': 7, 
         'minDisparity': 5,
@@ -406,7 +406,7 @@ model = joblib.load(model_path)
 
 
 ################################################################################################################################
-pairs = read_image_pairs_by_distance('../images/calibration_results/matlab_1/chessboard')
+pairs = read_image_pairs_by_distance('../images/calibration_results/matlab_1/validation')
 alphabet = string.ascii_lowercase
 alturas = []
 
@@ -437,7 +437,7 @@ for situation, variations in pairs.items():
             dense_point_cloud = dense_point_cloud.astype(np.float64)
 
             # Corrección de nube densa 
-            #dense_point_cloud = pcGen.point_cloud_correction(dense_point_cloud, model)
+            dense_point_cloud = pcGen.point_cloud_correction(dense_point_cloud, model)
 
             # base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}_{letter}_corrected"
             base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}_{letter}"
@@ -457,7 +457,7 @@ for situation, variations in pairs.items():
             counter = 0
             heights = []
             for pc, cl in zip(point_cloud_list, colors_list):
-                #pc = pcGen.point_cloud_correction(pc, model)
+                pc = pcGen.point_cloud_correction(pc, model)
                 #pcGen.process_point_cloud(point_cloud, eps, min_samples, base_filename) #This is DBSCAN process
                 # colors = original_cloud_colors = np.ones_like(point_cloud) * [255, 0, 0]
                 centroids = pcGen.process_point_cloud(pc, eps, min_samples, f"{base_filename}_person{counter}")
@@ -506,7 +506,7 @@ for situation, variations in pairs.items():
 
 if len(data) > 0:
     # Guardar dataset como CSV
-    dataset_path = f"../datasets/data/z_estimation_{camera_type}_{mask_type}_heights_train.csv"
+    dataset_path = f"../datasets/data/z_estimation_{camera_type}_{mask_type}_heights_corrected.csv"
 
     if not os.path.exists(os.path.dirname(dataset_path)):
         os.makedirs(os.path.dirname(dataset_path))
