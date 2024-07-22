@@ -93,7 +93,7 @@ def visualize_dense_point_cloud(pcd_file):
     mark_lines = create_mark_lines()
     # Leer la nube de puntos densa
     pcd = o3d.io.read_point_cloud(pcd_file)
-
+    print(pcd.scale)
     # # ESCALADO BETA
     # scale_factor = 1.0
     # scaling_matrix = np.eye(4)
@@ -101,7 +101,7 @@ def visualize_dense_point_cloud(pcd_file):
 
     # pcd = pcd.transform(scaling_matrix)
 
-    z_min, z_max = 0, 1000
+    z_min, z_max = 0, 1000000
     bounding_box = o3d.geometry.AxisAlignedBoundingBox(min_bound=(-float('inf'), -float('inf'), z_min), max_bound=(float('inf'), float('inf'), z_max))
     cropped_pcd = pcd.crop(bounding_box)
 
@@ -113,7 +113,7 @@ def visualize_dense_point_cloud(pcd_file):
     
     # Agregar la geometría
     #viewer.add_geometry(pcd)
-    viewer.add_geometry(cropped_pcd)
+    viewer.add_geometry(pcd)
     viewer.add_geometry(origin)
     # viewer.add_geometry(mark_lines)
     # Configurar opciones de renderizado
@@ -141,7 +141,7 @@ if __name__ == "__main__":
 
     config = "matlab_1"
     mask = "keypoint"
-    situacion = "150_500"
+    situacion = "500_a"
 
     filepath = f"./point_clouds/{config}/{mask}_disparity/{config}_{situacion}"
 
@@ -151,7 +151,7 @@ if __name__ == "__main__":
 
     
     # Visualización de la nube de puntos dispersa
-    sparse_pcd_file = f"{filepath}_original.ply"
+    sparse_pcd_file = f"{filepath}_person1_original.ply"
     #centroid_file = f"{filepath}_centroids.ply"
 
     # Imprimir coordenadas Z de los centroides

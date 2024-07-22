@@ -5,7 +5,10 @@ import string
 import joblib
 import numpy as np
 import pc_generation as pcGen
+import pc_generation_RAFT as pcGen_RAFT
 import matplotlib.pyplot as plt
+from bridge import get_RAFT_disparity_map
+
 # Definición de los videos y matrices de configuración
 configs = {
     'matlab_1': {
@@ -211,12 +214,12 @@ def read_image_pairs_by_distance(base_folder):
                     left_img_path = os.path.join(subdir, left_img)
                     right_img_path = os.path.join(subdir, corresponding_right_img)
                     
-                    # Lee las imágenes con OpenCV
-                    img_left = cv2.imread(left_img_path)
-                    img_right = cv2.imread(right_img_path)
+                    # # Lee las imágenes con OpenCV
+                    # img_left = cv2.imread(left_img_path)
+                    # img_right = cv2.imread(right_img_path)
                     
-                    if img_left is not None and img_right is not None:
-                        image_pairs_by_distance[distance].append((img_left, img_right))
+                    if left_img_path is not None and right_img_path is not None:
+                        image_pairs_by_distance[distance].append((left_img_path, right_img_path))
                     else:
                         print(f"Error al leer las imágenes: {left_img_path} o {right_img_path}")
     
@@ -406,7 +409,7 @@ model = joblib.load(model_path)
 
 
 ################################################################################################################################
-pairs = read_image_pairs_by_distance('../images/calibration_results/matlab_1/chessboard')
+pairs = read_image_pairs_by_distance('../images/calibration_results/matlab_1/flexometer')
 alphabet = string.ascii_lowercase
 alturas = []
 
@@ -416,7 +419,7 @@ for situation, variations in pairs.items():
     try:
 
         for variation, letter in zip(variations, alphabet):
-            print(f"\nProcesando situación: {situation} | Variante {letter}")
+            print(f"\n \n Procesando situación: {situation} | Variante {letter}")
             #(img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
 
             MATRIX_Q = configs[camera_type]['MATRIX_Q']
@@ -424,17 +427,46 @@ for situation, variations in pairs.items():
             Q = fs.getNode(configs[camera_type]['disparity_to_depth_map']).mat()
             fs.release()
 
+            
 
             img_l = variation[0]
             img_r = variation[1]
-            
-     
-            
-            disparity = pcGen.compute_disparity(img_l, img_r, configs[camera_type])
+
+             # Lee las imágenes con OpenCV
+            img_left = cv2.imread(img_l)
+            img_right = cv2.imread(img_r)
+
+            img_left = cv2.cvtColor(img_left, cv2.COLOR_BGR2RGB)
+            img_right = cv2.cvtColor(img_right, cv2.COLOR_BGR2RGB)
+            # DISPARITY USING SGBM
+            # disparity = pcGen.compute_disparity(img_left, img_right, configs[camera_type])
 
             # # Generar nube de puntos densa sin filtrado adicional
-            dense_point_cloud, dense_colors = pcGen.disparity_to_pointcloud(disparity, Q, img_l)
-            dense_point_cloud = dense_point_cloud.astype(np.float64)
+            # dense_point_cloud, dense_colors = pcGen.disparity_to_pointcloud(disparity, Q, img_left)
+
+
+            # DISPARITY USING RAFT
+            disparity_RAFT = get_RAFT_disparity_map(
+        restore_ckpt="RAFTStereo/models/raftstereo-sceneflow.pth",
+        left_imgs=img_l,
+        right_imgs=img_r,
+        save_numpy=True
+    ) 
+            fx, fy, cx1, cy = 1429.4995220185822, 1430.4111785502332, 929.8227256572083, 506.4722541384677
+            cx2 = 936.8035788332203
+            baseline = 32.95550620237698 # in millimeters
+
+            ######################
+            img_l = cv2.imread(img_l)
+            img_r = cv2.imread(img_r)
+
+            img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
+            img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
+
+            dense_point_cloud_RAFT, dense_colors_RAFT = pcGen_RAFT.disparity_to_pointcloud(disparity_RAFT, fx, fy, cx1, cx2, cy, baseline, img_l)
+
+
+            
 
             # Corrección de nube densa 
             #dense_point_cloud = pcGen.point_cloud_correction(dense_point_cloud, model)
@@ -442,7 +474,8 @@ for situation, variations in pairs.items():
             # base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}_{letter}_corrected"
             base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}_{letter}"
 
-            pcGen.save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
+            # pcGen.save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
+            pcGen_RAFT.save_dense_point_cloud(dense_point_cloud_RAFT, dense_colors_RAFT, base_filename)
 
             # # Generar nube de puntos con filtrado y aplicar DBSCAN
             # point_cloud, colors, eps, min_samples = pcGen.generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=is_roi)
@@ -453,17 +486,24 @@ for situation, variations in pairs.items():
             # original_filename = f"{base_filename}_original.ply"
             # pcGen.save_point_cloud(point_cloud, colors, original_filename)
             # Generar nube de puntos con filtrado y aplicar DBSCAN
-            point_cloud_list, colors_list, eps, min_samples = pcGen.generate_filtered_point_cloud(img_l, disparity, Q, camera_type,  use_roi=is_roi)
+
+            #@SGBM
+            # point_cloud_list, colors_list, eps, min_samples = pcGen.generate_filtered_point_cloud(img_l, disparity, Q, camera_type,  use_roi=is_roi)
+            # @RAFT
+            point_cloud_list, colors_list, eps, min_samples = pcGen_RAFT.generate_filtered_point_cloud(img_l, disparity_RAFT, fx, fy, cx1, cx2, cy, baseline, camera_type, use_roi=is_roi)
+
+            # point_cloud_list.extend(point_cloud_list_RAFT)
+            # colors_list.extend(colors_list_RAFT)
             counter = 0
             heights = []
             for pc, cl in zip(point_cloud_list, colors_list):
                 #pc = pcGen.point_cloud_correction(pc, model)
                 #pcGen.process_point_cloud(point_cloud, eps, min_samples, base_filename) #This is DBSCAN process
                 # colors = original_cloud_colors = np.ones_like(point_cloud) * [255, 0, 0]
-                centroids = pcGen.process_point_cloud(pc, eps, min_samples, f"{base_filename}_person{counter}")
+                centroids = pcGen_RAFT.process_point_cloud(pc, eps, min_samples, f"{base_filename}_person{counter}")
                 
 
-                m_initial = 30 #This is an aproximation
+                m_initial = 50 #This is an aproximation
                 # optimal_range = [centroids[0][2] - m_initial, centroids[0][2] + m_initial]
 
                 # AQUI SE NECESITA OBTENER LOS PUNTOS DE point_cloud QUE ESTEN EN EL RAGO OPTIMO APARATIR DE LAS COORDENDAS DEL CENTROIDE
