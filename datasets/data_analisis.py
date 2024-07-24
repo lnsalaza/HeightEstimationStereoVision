@@ -11,16 +11,27 @@ folder = "matlab_1"
 file_name = f"z_estimation_{folder}_keypoint" 
 # file_name = "z_estimation_matlab_kp_cm" 
 
-df = pd.read_csv(f"data/{folder}/ground_truth/{file_name}_training.csv") 
-df_gt = pd.read_csv(f"data/{file_name}_validation.csv")
-df_alturas_train = pd.read_csv(f"data/{file_name}_heights_train.csv")
-df_alturas_train = df_alturas_train.sort_values(["situation"]).reset_index(drop=True)
-df_alturas_val = pd.read_csv(f"data/{file_name}_heights_val.csv")
-df_alturas_val = df_alturas_val.sort_values(["situation"]).reset_index(drop=True)
-df_alturas_corr = pd.read_csv(f"data/{file_name}_heights_corrected.csv")
-df_alturas_corr = df_alturas_corr.sort_values(["situation"]).reset_index(drop=True)
+# df = pd.read_csv(f"data/{folder}/ground_truth/{file_name}_training.csv") 
+# df_gt = pd.read_csv(f"data/{file_name}_validation.csv")
+df = pd.read_csv(f"data/{folder}/z_estimation_train.csv") 
+
+
+df_gt = pd.read_csv(f"data/{folder}/{file_name}_validation.csv")
+
+# df_alturas_train = pd.read_csv(f"data/{file_name}_h_train.csv")
+# df_alturas_train = df_alturas_train.sort_values(["situation"]).reset_index(drop=True)
+
+# df_alturas_val = pd.read_csv(f"data/{file_name}_heights_val.csv")
+# df_alturas_val = df_alturas_val.sort_values(["situation"]).reset_index(drop=True)
+
+# df_alturas_corr = pd.read_csv(f"data/{file_name}_heights_corrected.csv")
+# df_alturas_corr = df_alturas_corr.sort_values(["situation"]).reset_index(drop=True)
+
 # df = pd.read_csv(f"steven/{file_name}.csv")
 # df = pd.read_csv("z_estimation_old_keypoints_no_astype_no_norm.csv")
+
+def separador(section=''):
+    print(f'----------------------------------{section}-------------------------------------------')
 
 def graficar_alturas(df, altura_minima, altura_maxima):
     """
@@ -56,6 +67,9 @@ def graficar_alturas(df, altura_minima, altura_maxima):
     plt.close()
 
 def extract_z_true(situation):
+    return int(situation.split("_")[0])
+
+def extract_h_true(situation):
     return int(situation.split("_")[0])
 
 def extract_situation_2(situation):
@@ -100,9 +114,9 @@ def has_two_numbers(s):
     numbers = [part for part in parts if part.isdigit()]
     return len(numbers) == 2
 
-def process_dataframe(df):
+def process_dataframe(df, column):
     # Identificar todas las columnas de z_estimation
-    z_columns = [col for col in df.columns if col.startswith('z_estimation_')]
+    z_columns = [col for col in df.columns if col.startswith(column)]
     
     # Si solo hay z_estimation_1, retornar el dataframe original
     if len(z_columns) == 1:
@@ -124,7 +138,7 @@ def process_dataframe(df):
             col_next = z_columns[i]
             if pd.notna(row[col_next]):
                 # new_rows.append({'situation': f"{number1}_{number2}{rest}", 'z_estimation_1': row[col_current], 'z_estimation_2': None})
-                new_rows.append({'situation': f"{number2}_{number1}{rest}", 'z_estimation_1': row[col_next], 'z_estimation_2': None})
+                new_rows.append({'situation': f"{number2}_{number1}{rest}", f'{column}1': row[col_next]})
     
     df_new_rows = pd.DataFrame(new_rows)
     
@@ -132,62 +146,50 @@ def process_dataframe(df):
     df_result = pd.concat([df, df_new_rows], ignore_index=True)
     return df_result
 
-
-df["z_true"] = df["situation"].apply(extract_z_true)
-
-
-
-# # TRAINING
-# df_front = df[df["situation"].str.contains("front")]
-
-# # VALIDATION
-# df_variant = df[df["situation"].str.contains("variant")]
-
-# # df_variant["z_corrected"] = df_variant["z_true"].apply(apply_linear_correction)
-
-# lr_model = apply_linear_regresion(df_front, "z_estimation_1", "z_true")
-
-## VARIANT DATAFRAME
-#df_variant["z_corrected"] =  lr_model.predict(df_variant[["z_estimation_1"]].values.reshape(-1,1))
-#df_variant["error"] = df_variant["z_true"] - df_variant["z_corrected"]
-#print(df_variant)
-## COMPLETE DATAFRAME
-# df["z_corrected"] =  lr_model.predict(df[["z_estimation_1"]].values.reshape(-1,1))
-# df["error"] = df["z_true"] - df["z_corrected"]
-# print(df)
-
-df_processed = process_dataframe(df)
+# TRAINING
+# df_processed = process_dataframe(df, 'z_estimation_')
+df_processed = df
 df_processed["z_true"] = df_processed["situation"].apply(extract_z_true)
 df_processed = df_processed.sort_values(["z_true"])
 
-df_gt_processed = process_dataframe(df_gt)
+# VALIDATION
+# df_gt_processed = process_dataframe(df_gt, 'z_estimation_')
+df_gt_processed = df_gt
 df_gt_processed["z_true"] = df_gt_processed["situation"].apply(extract_z_true)
 df_gt_processed = df_gt_processed.sort_values(["z_true"])
 
 
-# TRAINING
-# df_front = df_processed[df_processed["situation"].str.contains("front")]
+# lr_model = apply_linear_regresion(df_processed, "z_estimation", "z_true", f'{folder}/z_estimation_lr')
+lr_model = joblib.load("models/matlab_1/z_estimation_lr.pkl")
+
+# df_gt_processed["z_corrected"] =  lr_model.predict(df_gt_processed[["z_estimation"]].values.reshape(-1,1))
+df_gt_processed["z_corrected"] =  lr_model.predict(df_gt_processed[["z_estimation_1"]])
+df_gt_processed["error"] = (abs(df_gt_processed["z_corrected"] - df_gt_processed["z_true"]))/df_gt_processed["z_true"]
+
+# separador()
+df_gt_processed.to_excel(f'data/{folder}/tables/z_estimation_corrected.xlsx', index=False)
+print(df_gt_processed)
+print(np.mean(df_gt_processed['error'])*100)
 
 
-# df_variant["z_corrected"] = df_variant["z_true"].apply(apply_linear_correction)
 
-# lr_model = apply_linear_regresion(df_processed, "z_estimation_1", "z_true", f'{folder}/z_lr')
-lr_model = joblib.load("models/z_estimation_matlab_1_keypoint_ln_model_LASER.pkl")
-
-df_gt_processed["z_corrected"] =  lr_model.predict(df_gt_processed[["z_estimation_1"]].values.reshape(-1,1))
-df_gt_processed["error"] = (abs(df_gt_processed["z_corrected"] - df_gt_processed["z_true"])*100)/df_gt_processed["z_true"]
-
-print('-----------------------------------------------------------------------------')
-print(np.mean(df_gt_processed['error'][:7]))
-print('-----------------------------------------------------------------------------')
-df_alturas_train["h_true"] = 173
-df_alturas_val["h_true"] = 173
-h_model = apply_linear_regresion(df_alturas_train, "h_estimation_1", "h_true", f'{folder}/height_lr')
-# df_alturas_val["h_corrected"] = lr_model.predict(df_alturas_val[["h_estimation_1"]].values.reshape(-1,1))
+# print('-----------------------------------------------------------------------------')
+# df_alturas_train["h_true"] = df_alturas_train["situation"].apply(extract_h_true)
+# df_alturas_val["h_true"] = 173
+# h_model = apply_linear_regresion(df_alturas_train, "h_estimation_1", "h_true", f'{folder}/height_lr')
+# df_alturas_val["h_corrected"] = h_model.predict(df_alturas_val[["h_estimation_1"]].values.reshape(-1,1))
 # df_alturas_val["error"] = (abs(df_alturas_val["h_corrected"] - df_alturas_val["h_true"])*100)/df_alturas_val["h_true"]
-print(df_alturas_val)
-# VALIDATION
-df_variant = df_processed[df_processed["situation"].str.contains("variant")]
+# file = f'data/{folder}/tables/heights_lr/'
+# if not os.path.exists(os.path.dirname(file)):
+#     os.makedirs(os.path.dirname(file))
+# separador('ALTURAS TRAIN')
+# # print(df_alturas_train)
+# df_alturas_train.to_excel(f'{file}/{file_name}_train.xlsx', index=False)
+# separador('ALTURAS VAL')
+# # print(df_alturas_val)
+# df_alturas_val.to_excel(f'{file}/{file_name}_val.xlsx', index=False)
+
+# df_variant = df_processed[df_processed["situation"].str.contains("variant")]
 
 # # GRAFICS
 
@@ -207,6 +209,8 @@ def save_plot(df, original, path):
     plt.grid(True)
 
     plt.tight_layout()
+    if not os.path.exists(os.path.dirname(path)):
+        os.makedirs(os.path.dirname(path))
     plt.savefig(path)
     # plt.savefig(f"./steven/graficas/original_{file_name}.png")
 
@@ -214,7 +218,7 @@ def save_plot_height(df, original, path):
     plt.figure(figsize=(12, 6))
     plt.plot(df['situation'], df['h_true'], label='h True',)
     if (original):
-        plt.plot(df['situation'], df['h_estimation_1'], label = 'H Estimation 1')
+        plt.plot(df['situation'], df['h_estimation'], label = 'H Estimation 1')
     else:
         plt.plot(df['situation'], df['h_corrected'], label = 'h Corrected')
  
@@ -226,9 +230,42 @@ def save_plot_height(df, original, path):
     plt.grid(True)
 
     plt.tight_layout()
+    if not os.path.exists(os.path.dirname(path)):
+        os.makedirs(os.path.dirname(path))
     plt.savefig(path)
     # plt.savefig(f"./steven/graficas/original_{file_name}.png")
 
+
+
+# cinta = pd.read_csv(f"data/cinta.csv")
+# cinta_c =  pd.read_csv(f"data/cinta_corregido.csv")
+# laser =  pd.read_csv(f"data/laser.csv")
+# laser_c =  pd.read_csv(f"data/laser_corregido.csv")
+
+# cinta["error"] = (abs(cinta["h_estimation"] - cinta["h_true"])*100)/cinta["h_true"]
+# cinta = cinta.sort_values(["h_true"]).reset_index(drop=True)
+# cinta_c["error"] = (abs(cinta_c["h_estimation"] - cinta_c["h_true"])*100)/cinta_c["h_true"]
+# cinta_c = cinta_c.sort_values(["h_true"]).reset_index(drop=True)
+# laser["error"] = (abs(laser["h_estimation"] - laser["h_true"])*100)/laser["h_true"]
+# laser = laser.sort_values(["h_true"]).reset_index(drop=True)
+# laser_c["error"] = (abs(laser_c["h_estimation"] - laser_c["h_true"])*100)/laser_c["h_true"]
+# laser_c = laser_c.sort_values(["h_true"]).reset_index(drop=True)
+
+# file = f'data/{folder}/tables/heights/'
+# if not os.path.exists(os.path.dirname(file)):
+#     os.makedirs(os.path.dirname(file))
+# cinta.to_excel(f'{file}/cinta.xlsx', index=False)
+# cinta_c.to_excel(f'{file}/cinta_c.xlsx', index=False)
+# laser.to_excel(f'{file}/laser.xlsx', index=False)
+# laser_c.to_excel(f'{file}/laser_c.xlsx', index=False)
+
+# file = f'graficas/{folder}/heights/'
+# if not os.path.exists(os.path.dirname(file)):
+#     os.makedirs(os.path.dirname(file))
+# save_plot_height(cinta, True, f'{file}/cinta.png')
+# save_plot_height(cinta_c, True, f'{file}/cinta_c.png')
+# save_plot_height(laser, True, f'{file}/laser.png')
+# save_plot_height(laser_c, True, f'{file}/laser_c.png')
 
 # ###########################################ORIGINAL#####################################
 
@@ -253,24 +290,24 @@ def save_plot_height(df, original, path):
 # ###########################################CORRECTED#####################################
 
 # save_plot(df_gt_processed, False, f"./graficas/{folder}/ground_truth/corrected_{file_name}.png")
-print('depth')
-print(df_processed)
-print('-----------------------------------------------------------------------------')
-print(df_gt_processed)
-print('-----------------------------------------------------------------------------')
-print('height')
-print(df_alturas_train)
-print('-----------------------------------------------------------------------------')
-print(df_alturas_val)
+# print('depth')
+# print(df_processed)
+# print('-----------------------------------------------------------------------------')
+# print(df_gt_processed)
+# print('-----------------------------------------------------------------------------')
+# print('height')
+# print(df_alturas_train)
+# print('-----------------------------------------------------------------------------')
+# print(df_alturas_val)
 
-df_alturas_corr['h_true'] = 173
-df_alturas_corr["error"] = (abs(df_alturas_corr["h_corrected"] - df_alturas_corr["h_true"])*100)/df_alturas_corr["h_true"]
+# df_alturas_corr['h_true'] = 173
+# df_alturas_corr["error"] = (abs(df_alturas_corr["h_corrected"] - df_alturas_corr["h_true"])*100)/df_alturas_corr["h_true"]
 
-print(df_alturas_corr.shape)
+# print(df_alturas_corr.shape)
 
-# save_plot_height(df_alturas_train, True, f"./graficas/{folder}/ground_truth/original_train_{file_name}.png")
-# save_plot_height(df_alturas_val, True, f"./graficas/{folder}/ground_truth/original_train_{file_name}.png")
-# save_plot_height(df_alturas_val, False, f"./graficas/{folder}/ground_truth/corrected_train_{file_name}.png")
-save_plot_height(df_alturas_corr, False, f"./graficas/{folder}/ground_truth/corrected_val_{file_name}.png")
+# save_plot_height(df_alturas_train, True, f"./graficas/{folder}/heights/original_train_{file_name}.png")
+# save_plot_height(df_alturas_val, True, f"./graficas/{folder}/heights/original_val_{file_name}.png")
+# save_plot_height(df_alturas_val, False, f"./graficas/{folder}/heights/corrected_train_{file_name}.png")
+# save_plot_height(df_alturas_corr, False, f"./graficas/{folder}/heights/corrected_val_{file_name}.png")
 
-graficar_alturas(df_alturas_train, 0, 250)
+# graficar_alturas(df_alturas_train, 0, 250)

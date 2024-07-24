@@ -242,17 +242,17 @@ def roi_source_point_cloud(img_l, img_r, Q):
     return filtered_disparity, dense_point_cloud, dense_colors, eps, min_samples
 
 
-def point_cloud_correction(points, model):
+def point_cloud_correction(points, model_y, model_z):
     points = np.asarray(points)
 
     # Xy = points[:,:2]
     x = points[:, 0].reshape(-1,1)
-    x_pred = model.predict(x)
+    x_pred = model_z.predict(x)
     y = points[:, 1].reshape(-1,1)
-    y_pred = model.predict(y)
+    y_pred = model_y.predict(y)
     # Predecir las coordenadas Z corregidas usando el modelo
     z = points[:, 2].reshape(-1,1)  # Tomar solo las coordenadas z
-    z_pred = model.predict(z)
+    z_pred = model_z.predict(z)
 
     
     # Actualizar las coordenadas Z de la nube de puntos con las predicciones corregidas
@@ -260,6 +260,35 @@ def point_cloud_correction(points, model):
     corrected_points = np.column_stack((x_pred,y_pred, z_pred))
 
     return corrected_points
+
+def z_correction(points, model_z):
+    points = np.asarray(points)
+
+    Xy = points[:,:2]
+    # Predecir las coordenadas Z corregidas usando el modelo
+    z = points[:, 2].reshape(-1,1)  # Tomar solo las coordenadas z
+    z_pred = model_z.predict(z)
+
+    
+    # Actualizar las coordenadas Z de la nube de puntos con las predicciones corregidas
+    corrected_points = np.column_stack((Xy, z_pred))
+
+    return corrected_points
+
+def y_correction(points, model_y):
+    points = np.asarray(points)
+
+    Xz = points[:,[0,2]]
+    # Predecir las coordenadas Z corregidas usando el modelo
+    y = points[:, 1].reshape(-1,1)  # Tomar solo las coordenadas y
+    y_pred = model_y.predict(y)
+
+    
+    # Actualizar las coordenadas Z de la nube de puntos con las predicciones corregidas
+    corrected_points = np.column_stack((Xz, y_pred))
+
+    return corrected_points
+
 
 
 def save_dense_point_cloud(point_cloud, colors, base_filename):

@@ -1,4 +1,5 @@
 import os
+import re
 import cv2
 import csv
 import string
@@ -9,13 +10,13 @@ import matplotlib.pyplot as plt
 # Definición de los videos y matrices de configuración
 configs = {
     'matlab_1': {
-        # 'LEFT_VIDEO': '../videos/rectified/matlab_1/left_rectified.avi',
-        # 'RIGHT_VIDEO': '../videos/rectified/matlab_1/right_rectified.avi',
-        'LEFT_VIDEO': '../videos/rectified/matlab_1/16_35_42_26_02_2024_VID_LEFT.avi',
-        'RIGHT_VIDEO': '../videos/rectified/matlab_1/16_35_42_26_02_2024_VID_RIGHT.avi',
+        'LEFT_VIDEO': '../videos/rectified/matlab_1/distance_left.avi',
+        'RIGHT_VIDEO': '../videos/rectified/matlab_1/distance_right.avi',
+        # 'LEFT_VIDEO': '../videos/rectified/matlab_1/16_35_42_26_02_2024_VID_LEFT.avi',
+        # 'RIGHT_VIDEO': '../videos/rectified/matlab_1/16_35_42_26_02_2024_VID_RIGHT.avi',
         'MATRIX_Q': '../config_files/matlab_1/newStereoMap.xml',
         'disparity_to_depth_map': 'disparity2depth_matrix',
-        'model': "../datasets/models/matlab_1/z_lr.pkl",
+        'model': "../datasets/models/matlab_1/z_estimation_lr.pkl",
         'numDisparities': 68,
         'blockSize': 7, 
         'minDisparity': 5,
@@ -250,6 +251,25 @@ def graficar_alturas(alturas_estimadas, altura_minima, altura_maxima):
     plt.savefig("IMG_alturas")
     plt.close()
 
+def swap_numbers_in_situation(situation):
+    # Usar regex para extraer números de la situación
+    numbers = re.findall(r'\d+', situation)
+    numbers = [int(num) for num in numbers]
+
+    if len(numbers) == 2:
+        return situation.replace(str(numbers[0]), "{temp}").replace(str(numbers[1]), str(numbers[0])).replace("{temp}", str(numbers[1]))
+    else:
+        return situation
+
+def get_adjusted_situation(situation, data):
+    # Verificar si la situación ya está en el diccionario
+    existing_entry = next((entry for entry in data if entry["situation"].startswith(situation)), None)
+    if existing_entry:
+        # Intercambiar los números en la situación
+        return swap_numbers_in_situation(situation)
+    else:
+        return situation
+
 
 # Flujo principal para todas las situaciones
 data = []
@@ -259,13 +279,15 @@ mask_type = 'keypoint'
 is_roi = (mask_type == "roi")
 situation = "450_600"
 model_path = configs[camera_type]['model']
+alphabet = string.ascii_lowercase
 # Cargar el modelo de regresión lineal entrenado
-model = joblib.load(model_path)
+model_z = joblib.load(model_path)
+model_y = joblib.load("../datasets/models/matlab_1/height_lr.pkl")
 
+################################################################################################################################
 
-# try:
-#     for situation in situations:
-    
+# for situation in situations:
+#     try:
 #         print(f"\nProcesando situación: {situation}")
 #         (img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
 #         img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
@@ -278,9 +300,9 @@ model = joblib.load(model_path)
 #         dense_point_cloud = dense_point_cloud.astype(np.float64)
 
 #         # Corrección de nube densa 
-#         dense_point_cloud = pcGen.point_cloud_correction(dense_point_cloud, model)
+#         # dense_point_cloud = pcGen.point_cloud_correction(dense_point_cloud, model)
 
-#         base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}"
+#         base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}_h_train"
 #         pcGen.save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
 
 #         # # Generar nube de puntos con filtrado y aplicar DBSCAN
@@ -295,11 +317,12 @@ model = joblib.load(model_path)
 #         point_cloud_list, colors_list, eps, min_samples = pcGen.generate_filtered_point_cloud(img_l, disparity, Q, camera_type,  use_roi=is_roi)
 #         counter = 0
 #         heights = []
-#         for pc, cl in zip(point_cloud_list, colors_list):
-#             point_cloud = pcGen.point_cloud_correction(pc, model)
+#         for pc, cl, letter in zip(point_cloud_list, colors_list, alphabet):
+#             # pc = pcGen.point_cloud_correction(pc, model)
+#             pc = pcGen.z_correction(pc, model_z)
 #             #pcGen.process_point_cloud(point_cloud, eps, min_samples, base_filename) #This is DBSCAN process
 #             # colors = original_cloud_colors = np.ones_like(point_cloud) * [255, 0, 0]
-#             centroids = pcGen.process_point_cloud(point_cloud, eps, min_samples, f"{base_filename}_{counter}")
+#             centroids = pcGen.process_point_cloud(pc, eps, min_samples, f"{base_filename}_{letter}")
 #             # centroides con profundidad z= 250 (250 es la primera profundidad en donde se empiezan a ver los pies) 
 #             # z(centoride) = 250 +- m (m= 30) para un rango aceptable de puntos en donde se puedan tomar puntos sin ruido en la profundidad
 #             #  Se define m como un valor multiplicativo inversamente proporcional a la profundidad del centroide
@@ -314,35 +337,43 @@ model = joblib.load(model_path)
 #             # AQUI SE NECESITA OBTENER LOS PUNTOS DE point_cloud QUE ESTEN EN EL RAGO OPTIMO APARATIR DE LAS COORDENDAS DEL CENTROIDE
 #             if len(centroids)!=0:
 #                 # Define el rango óptimo basado en la profundidad del primer centroide
-#                 filtered_points = filter_points_by_optimal_range(point_cloud, centroids[0], m_initial)
+#                 filtered_points = filter_points_by_optimal_range(pc, centroids[0], m_initial)
 #                 y_min, y_max = get_Y_bounds(filtered_points)
                 
 #                 if y_min is not None and y_max is not None:
 #                     print(f"Para el centroide con z = {centroids[0][2]}, el rango de Y es: Y_min = {y_min}, Y_max = {y_max}")
+#                     # print(f"La altura de la persona {counter+1} es de {abs(y_max - y_min)*4.588771335397176}")
+#                     # heights.append(abs(y_max - y_min)*4.588771335397176)
 #                     print(f"La altura de la persona {counter+1} es de {abs(y_max - y_min)}")
-#                     heights.append(y_max-y_min)
+#                     heights.append(abs(y_max - y_min))
+#                     adjusted_situation = get_adjusted_situation(situation, data)
+
+#                     # 4.588771335397176
+#                     data.append({
+#                         "situation": adjusted_situation + "_" + letter,
+#                         "h_estimation": abs(y_max - y_min),
+#                         "z_estimation": centroids[0][2]
+#                     })
 #                 else:
 #                     print("No se encontraron puntos en el rango óptimo para este centroide.")
 #             counter += 1
 #         data_height.append(heights)
-        
-    
 
-#         z_estimations = [centroid[2] for centroid in centroids] if centroids is not None else []
-#         data.append({
-#             "situation": situation,
-#             **{f"z_estimation_{i+1}": z for i, z in enumerate(z_estimations)}
-#         })
-#         # heights_estimations = [height for height in heights] if heights is not None else []
+#         # z_estimations = [centroid[2] for centroid in centroids] if centroids is not None else []
 #         # data.append({
 #         #     "situation": situation,
-#         #     **{f"z_estimation_{i+1}": z for i, z in enumerate(heights_estimations)}
+#         #     **{f"z_estimation_{i+1}": z for i, z in enumerate(z_estimations)}
 #         # })
+#         # heights_estimations = [height for height in heights] if heights is not None else []
+#         # data.append({
+#         #     "situation": situation + "_" + letter,
+#         #     **{f"h_estimation_{i+1}": z for i, z in enumerate(heights_estimations)}
+#         # })
+      
+#     except Exception as e:
+#         print(f"Error procesando {situation}: {e}")    
 
-        
-# except Exception as e:
-#     print(f"Error procesando {situation}: {e}")    
-
+################################################################################################################################
 
 # Flujo principal
 
@@ -407,11 +438,9 @@ model = joblib.load(model_path)
 
 ################################################################################################################################
 pairs = read_image_pairs_by_distance('../images/calibration_results/matlab_1/validation')
-alphabet = string.ascii_lowercase
+
 alturas = []
-
-
-
+ 
 for situation, variations in pairs.items():
     try:
 
@@ -437,7 +466,7 @@ for situation, variations in pairs.items():
             dense_point_cloud = dense_point_cloud.astype(np.float64)
 
             # Corrección de nube densa 
-            dense_point_cloud = pcGen.point_cloud_correction(dense_point_cloud, model)
+            # dense_point_cloud = pcGen.point_cloud_correction(dense_point_cloud, model)
 
             # base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}_{letter}_corrected"
             base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}_{letter}"
@@ -457,7 +486,8 @@ for situation, variations in pairs.items():
             counter = 0
             heights = []
             for pc, cl in zip(point_cloud_list, colors_list):
-                pc = pcGen.point_cloud_correction(pc, model)
+                # pc = pcGen.point_cloud_correction(pc, model_y, model_z)
+                pc = pcGen.z_correction(pc, model_z)
                 #pcGen.process_point_cloud(point_cloud, eps, min_samples, base_filename) #This is DBSCAN process
                 # colors = original_cloud_colors = np.ones_like(point_cloud) * [255, 0, 0]
                 centroids = pcGen.process_point_cloud(pc, eps, min_samples, f"{base_filename}_person{counter}")
@@ -475,8 +505,18 @@ for situation, variations in pairs.items():
                     if y_min is not None and y_max is not None:
                         print(f"Para el centroide con z = {centroids[0][2]}, el rango de Y es: Y_min = {y_min}, Y_max = {y_max}")
                         print(f"La altura de la persona {counter+1} es de {abs(y_max - y_min)}")
-                        heights.append(y_max-y_min)
-                        alturas.append(y_max-y_min)
+                        heights.append(abs(y_max - y_min))
+                        alturas.append(abs(y_max - y_min))
+
+                        adjusted_situation = get_adjusted_situation(situation+ "_" + letter, data)
+
+                        # adjusted_situation = get_closest_situation(situation, centroids[0][2], data)
+                        # 4.588771335397176
+                        data.append({
+                            "situation": adjusted_situation ,
+                            "h_estimation": abs(y_max - y_min),
+                            "z_estimation": centroids[0][2]
+                        })
                     else:
                         print("No se encontraron puntos en el rango óptimo para este centroide.")
                 counter += 1
@@ -491,10 +531,10 @@ for situation, variations in pairs.items():
             
             
             heights_estimations = [height for height in heights] if heights is not None else []
-            data.append({
-                "situation": situation + "_" + letter,
-                **{f"h_estimation_{i+1}": z for i, z in enumerate(heights_estimations)}
-            })
+            # data.append({
+            #     "situation": situation + "_" + letter,
+            #     **{f"h_estimation_{i+1}": z for i, z in enumerate(heights_estimations)}
+            # })
           
     except Exception as e:
         print(f"Error procesando {situation}: {e}")    
@@ -506,7 +546,7 @@ for situation, variations in pairs.items():
 
 if len(data) > 0:
     # Guardar dataset como CSV
-    dataset_path = f"../datasets/data/z_estimation_{camera_type}_{mask_type}_heights_corrected.csv"
+    dataset_path = f"../datasets/data/{camera_type}/z_estimation_{camera_type}_{mask_type}_h_validation-correction_model-.csv"
 
     if not os.path.exists(os.path.dirname(dataset_path)):
         os.makedirs(os.path.dirname(dataset_path))
@@ -514,7 +554,8 @@ if len(data) > 0:
     max_z_count = max(len(row) - 1 for row in data) # -1 porque situation no es una columna z_estimation
 
     # fieldnames = ["situation"] + [f"z_estimation_{i+1}" for i in range(max_z_count)]
-    fieldnames = ["situation"] + [f"h_estimation_{i+1}" for i in range(max_z_count)]
+    # fieldnames = ["situation"] + [f"h_estimation_{i+1}" for i in range(max_z_count)]
+    fieldnames = ["situation"] + ["z_estimation"] + ["h_estimation"] 
 
 
     with open(dataset_path, "w", newline='') as csvfile:

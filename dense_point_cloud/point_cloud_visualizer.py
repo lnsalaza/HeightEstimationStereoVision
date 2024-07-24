@@ -120,7 +120,7 @@ if __name__ == "__main__":
 
     config = "matlab_1"
     mask = "keypoint"
-    situacion = "150_a_corrected"
+    situacion = "100_a"
 
     filepath = f"./point_clouds/{config}/{mask}_disparity/{config}_{situacion}"
 
