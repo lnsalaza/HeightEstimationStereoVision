@@ -16,7 +16,7 @@ configs = {
         # 'RIGHT_VIDEO': '../videos/rectified/matlab_1/16_35_42_26_02_2024_VID_RIGHT.avi',
         'MATRIX_Q': '../config_files/matlab_1/newStereoMap.xml',
         'disparity_to_depth_map': 'disparity2depth_matrix',
-        'model': "../datasets/models/matlab_1/z_estimation_lr.pkl",
+        'model': "../datasets/models/matlab_1/LASER2.pkl",
         'numDisparities': 68,
         'blockSize': 7, 
         'minDisparity': 5,
@@ -44,7 +44,7 @@ configs = {
         'RIGHT_VIDEO': '../videos/rectified/matlab_2/right_rectified.avi',
         'MATRIX_Q': '../config_files/laser_config/including_Y_rotation_random/iyrrStereoMap.xml',
         'disparity_to_depth_map': 'disparity2depth_matrix',
-        'model': "../datasets/models/z_estimation_matlab_2_keypoint_ln_model.pkl",
+        'model': "../datasets/models/z_estimation_matlab_1_keypoint_ln_model_LASER.pkl",
         'numDisparities': 68,
         'blockSize': 7, 
         'minDisparity': 5,
@@ -282,7 +282,7 @@ model_path = configs[camera_type]['model']
 alphabet = string.ascii_lowercase
 # Cargar el modelo de regresión lineal entrenado
 model_z = joblib.load(model_path)
-model_y = joblib.load("../datasets/models/matlab_1/height_lr.pkl")
+# model_y = joblib.load("../datasets/models/matlab_1/height_lr.pkl")
 
 ################################################################################################################################
 
@@ -539,14 +539,15 @@ for situation, variations in pairs.items():
     except Exception as e:
         print(f"Error procesando {situation}: {e}")    
 
-# alturas = [157.43612581866932, 156.8095422592475, 156.9406790662916, 157.95365574074827, 153.05819018710446, 154.19328141790845, 153.0152661459107, 152.15594113483553, 171.21962589737763, 171.32145118182308, 168.36932374795845, 169.9956647777326, 177.31622114412914, 180.37798739055467, 175.49163042493484, 175.55732353792962, 130.6788474795684, 129.96779483673578, 128.13854669838858, 130.5648414372045, 137.6453896269049, 138.2043374834691, 138.98497561379958, 138.83201464903598, 154.43072825389646, 155.83258743632342, 153.78167300680082, 154.0236285698781, 135.58037823045095, 136.37961246176573, 135.95496231772637, 134.0220086598071, 185.15909915426658, 184.68129879227348, 183.25861312790846, 183.87008285854478, 146.78258888187133, 146.6510012021183, 141.85468447577546, 140.32748268026592, 192.21032622833195, 192.91321279896297, 188.991181423899, 190.16987780147835]
-# graficar_alturas(alturas, 0, 250) 
+# # alturas = [157.43612581866932, 156.8095422592475, 156.9406790662916, 157.95365574074827, 153.05819018710446, 154.19328141790845, 153.0152661459107, 152.15594113483553, 171.21962589737763, 171.32145118182308, 168.36932374795845, 169.9956647777326, 177.31622114412914, 180.37798739055467, 175.49163042493484, 175.55732353792962, 130.6788474795684, 129.96779483673578, 128.13854669838858, 130.5648414372045, 137.6453896269049, 138.2043374834691, 138.98497561379958, 138.83201464903598, 154.43072825389646, 155.83258743632342, 153.78167300680082, 154.0236285698781, 135.58037823045095, 136.37961246176573, 135.95496231772637, 134.0220086598071, 185.15909915426658, 184.68129879227348, 183.25861312790846, 183.87008285854478, 146.78258888187133, 146.6510012021183, 141.85468447577546, 140.32748268026592, 192.21032622833195, 192.91321279896297, 188.991181423899, 190.16987780147835]
+# # graficar_alturas(alturas, 0, 250) 
 
 ################################################ GUARDAR DATASET ###############################################################
 
 if len(data) > 0:
     # Guardar dataset como CSV
-    dataset_path = f"../datasets/data/{camera_type}/z_estimation_{camera_type}_{mask_type}_h_validation-correction_model-.csv"
+    # dataset_path = f"../datasets/data/{camera_type}/z_estimation_{camera_type}_{mask_type}_h_validation-LASER2_model-.csv"
+    dataset_path = f"../datasets/data/{camera_type}/validation-z_corrected-LASER2_model-.csv"
 
     if not os.path.exists(os.path.dirname(dataset_path)):
         os.makedirs(os.path.dirname(dataset_path))

@@ -11,9 +11,9 @@ folder = "matlab_1"
 file_name = f"z_estimation_{folder}_keypoint" 
 # file_name = "z_estimation_matlab_kp_cm" 
 
-# df = pd.read_csv(f"data/{folder}/ground_truth/{file_name}_training.csv") 
+df = pd.read_csv(f"data/{folder}/ground_truth/{file_name}_training.csv") 
 # df_gt = pd.read_csv(f"data/{file_name}_validation.csv")
-df = pd.read_csv(f"data/{folder}/z_estimation_train.csv") 
+# df = pd.read_csv(f"data/{folder}/z_estimation_train.csv") 
 
 
 df_gt = pd.read_csv(f"data/{folder}/{file_name}_validation.csv")
@@ -147,8 +147,8 @@ def process_dataframe(df, column):
     return df_result
 
 # TRAINING
-# df_processed = process_dataframe(df, 'z_estimation_')
-df_processed = df
+df_processed = process_dataframe(df, 'z_estimation_')
+# df_processed = df
 df_processed["z_true"] = df_processed["situation"].apply(extract_z_true)
 df_processed = df_processed.sort_values(["z_true"])
 
@@ -159,15 +159,16 @@ df_gt_processed["z_true"] = df_gt_processed["situation"].apply(extract_z_true)
 df_gt_processed = df_gt_processed.sort_values(["z_true"])
 
 
-# lr_model = apply_linear_regresion(df_processed, "z_estimation", "z_true", f'{folder}/z_estimation_lr')
-lr_model = joblib.load("models/matlab_1/z_estimation_lr.pkl")
+lr_model = apply_linear_regresion(df_processed, "z_estimation_1", "z_true", f'{folder}/LASER2')
+# lr_model = apply_linear_regresion(df_processed, "z_estimation", "z_true", f'{folder}/LASER2')
+# lr_model = joblib.load("models/matlab_1/z_estimation_lr.pkl")
 
-# df_gt_processed["z_corrected"] =  lr_model.predict(df_gt_processed[["z_estimation"]].values.reshape(-1,1))
-df_gt_processed["z_corrected"] =  lr_model.predict(df_gt_processed[["z_estimation_1"]])
+df_gt_processed["z_corrected"] =  lr_model.predict(df_gt_processed[["z_estimation_1"]].values.reshape(-1,1))
+# df_gt_processed["z_corrected"] =  lr_model.predict(df_gt_processed[["z_estimation_1"]])
 df_gt_processed["error"] = (abs(df_gt_processed["z_corrected"] - df_gt_processed["z_true"]))/df_gt_processed["z_true"]
 
 # separador()
-df_gt_processed.to_excel(f'data/{folder}/tables/z_estimation_corrected.xlsx', index=False)
+df_gt_processed.to_excel(f'data/{folder}/tables/LASER2.xlsx', index=False)
 print(df_gt_processed)
 print(np.mean(df_gt_processed['error'])*100)
 
