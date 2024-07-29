@@ -22,7 +22,7 @@ def listar_archivos(carpeta, extension, pista_nombre=''):
 # Configurar carpeta y criterios de archivo
 carpeta = '../dense_point_cloud/point_clouds/video/L/matlab_1/keypoint_disparity'
 extension = '.ply'
-pista_nombre = 'dense'  # Dejar vacío si no se necesita
+pista_nombre = 'original'  # Dejar vacío si no se necesita
 
 # Obtener y ordenar archivos
 archivos = listar_archivos(carpeta, extension, pista_nombre)

@@ -5,10 +5,12 @@ import string
 import joblib
 import numpy as np
 import pc_generation as pcGen
-import pc_generation_RAFT as pcGen_RAFT
+import pc_generation_ML as pcGen_ML
 import matplotlib.pyplot as plt
-from bridge import get_RAFT_disparity_map
 
+
+from bridge_selective import get_SELECTIVE_disparity_map
+from bridge_raft import get_RAFT_disparity_map
 # Definición de los videos y matrices de configuración
 configs = {
     'matlab_1': {
@@ -258,12 +260,24 @@ def graficar_alturas(alturas_estimadas, altura_minima, altura_maxima):
 data = []
 data_height = []
 camera_type = 'matlab_1'
-mask_type = 'keypoint'
+mask_type = 'roi'
 is_roi = (mask_type == "roi")
 situation = "450_600"
 model_path = configs[camera_type]['model']
 # Cargar el modelo de regresión lineal entrenado
 model = joblib.load(model_path)
+method_used = "RAFT" #OPTIONS: "SGBM". "RAFT", "SELECTIVE"
+
+
+print(f"{method_used} ESTA SIENDO USADO")
+fx, fy, cx1, cy = 1429.4995220185822, 1430.4111785502332, 929.8227256572083, 506.4722541384677
+cx2 = 936.8035788332203
+baseline = 32.95550620237698 # in millimeters
+
+
+# Definir si se debe aplicar la corrección de la nube de puntos
+apply_correction = False
+
 
 
 # try:
@@ -413,6 +427,10 @@ pairs = read_image_pairs_by_distance('../images/calibration_results/matlab_1/fle
 alphabet = string.ascii_lowercase
 alturas = []
 
+def visualize_images(window_name, images, size):
+    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(window_name, size[0], size[1])
+    cv2.imshow(window_name, images)
 
 
 for situation, variations in pairs.items():
@@ -429,56 +447,55 @@ for situation, variations in pairs.items():
 
             
 
-            img_l = variation[0]
-            img_r = variation[1]
+            img_l_path = variation[0]
+            img_r_path = variation[1]
 
-             # Lee las imágenes con OpenCV
-            img_left = cv2.imread(img_l)
-            img_right = cv2.imread(img_r)
-
+            # Leer las imágenes con OpenCV y convertirlas a RGB
+            img_left = cv2.imread(img_l_path)
+            img_right = cv2.imread(img_r_path)
             img_left = cv2.cvtColor(img_left, cv2.COLOR_BGR2RGB)
             img_right = cv2.cvtColor(img_right, cv2.COLOR_BGR2RGB)
-            # DISPARITY USING SGBM
-            # disparity = pcGen.compute_disparity(img_left, img_right, configs[camera_type])
-
-            # # Generar nube de puntos densa sin filtrado adicional
-            # dense_point_cloud, dense_colors = pcGen.disparity_to_pointcloud(disparity, Q, img_left)
 
 
-            # DISPARITY USING RAFT
-            disparity_RAFT = get_RAFT_disparity_map(
-        restore_ckpt="RAFTStereo/models/raftstereo-sceneflow.pth",
-        left_imgs=img_l,
-        right_imgs=img_r,
-        save_numpy=True
-    ) 
-            fx, fy, cx1, cy = 1429.4995220185822, 1430.4111785502332, 929.8227256572083, 506.4722541384677
-            cx2 = 936.8035788332203
-            baseline = 32.95550620237698 # in millimeters
+            # Calcular la disparidad según el método seleccionado
+            if method_used == "SGBM":
+                disparity = pcGen.compute_disparity(img_left, img_right, configs[camera_type])
+            elif method_used == "RAFT":
+                disparity = get_RAFT_disparity_map(
+                    restore_ckpt="RAFTStereo/models/raftstereo-middlebury.pth",
+                    left_imgs=img_l_path,
+                    right_imgs=img_r_path,
+                    save_numpy=True
+                )
+            elif method_used == "SELECTIVE":
+                disparity = get_SELECTIVE_disparity_map(
+                    restore_ckpt="Selective_IGEV/pretrained_models/middlebury_train.pth",
+                    left_imgs=img_l_path,
+                    right_imgs=img_r_path,
+                    save_numpy=True
+                )
+            else:
+                raise ValueError(f"Método de disparidad no reconocido: {method_used}")
 
-            ######################
-            img_l = cv2.imread(img_l)
-            img_r = cv2.imread(img_r)
+            # Generar nube de puntos densa
+            if method_used == "SGBM":
+                dense_point_cloud, dense_colors = pcGen.disparity_to_pointcloud(disparity, Q, img_left)
+            else:
+                dense_point_cloud, dense_colors = pcGen_ML.disparity_to_pointcloud(disparity, fx, fy, cx1, cx2, cy, baseline, img_left, use_max_disparity=True)
 
-            img_l = cv2.cvtColor(img_l, cv2.COLOR_BGR2RGB)
-            img_r = cv2.cvtColor(img_r, cv2.COLOR_BGR2RGB)
-
-            dense_point_cloud_RAFT, dense_colors_RAFT = pcGen_RAFT.disparity_to_pointcloud(disparity_RAFT, fx, fy, cx1, cx2, cy, baseline, img_l)
-
-
-            
-
-            # Corrección de nube densa 
-            #dense_point_cloud = pcGen.point_cloud_correction(dense_point_cloud, model)
-
-            # base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}_{letter}_corrected"
+            # Generar el nombre de archivo base para guardar la nube de puntos
             base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}_{letter}"
 
-            # pcGen.save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
-            pcGen_RAFT.save_dense_point_cloud(dense_point_cloud_RAFT, dense_colors_RAFT, base_filename)
+            # Corrección de nube densa (opcional)
+            if apply_correction:
+                dense_point_cloud = pcGen.point_cloud_correction(dense_point_cloud, model)
+                base_filename += "_corregido"
+
+            
+            pcGen.save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
 
             # # Generar nube de puntos con filtrado y aplicar DBSCAN
-            # point_cloud, colors, eps, min_samples = pcGen.generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=is_roi)
+            # point_cloud, colors, eps, min_samples = pcGen.generate_filtered_point_cloud(img_left, disparity, Q, camera_type, use_roi=is_roi)
 
             # # Correción de nube no densa
             # point_cloud = pcGen.point_cloud_correction(point_cloud, model)
@@ -487,10 +504,16 @@ for situation, variations in pairs.items():
             # pcGen.save_point_cloud(point_cloud, colors, original_filename)
             # Generar nube de puntos con filtrado y aplicar DBSCAN
 
-            #@SGBM
-            # point_cloud_list, colors_list, eps, min_samples = pcGen.generate_filtered_point_cloud(img_l, disparity, Q, camera_type,  use_roi=is_roi)
-            # @RAFT
-            point_cloud_list, colors_list, eps, min_samples = pcGen_RAFT.generate_filtered_point_cloud(img_l, disparity_RAFT, fx, fy, cx1, cx2, cy, baseline, camera_type, use_roi=is_roi)
+            # Generar nube de puntos filtrada
+            if method_used == "SGBM":
+                point_cloud_list, colors_list, eps, min_samples = pcGen.generate_filtered_point_cloud(
+                    img_left, disparity, Q, camera_type, use_roi=is_roi
+                )
+            else:
+                point_cloud_list, colors_list, eps, min_samples = pcGen_ML.generate_filtered_point_cloud(
+                    img_left, disparity, fx, fy, cx1, cx2, cy, baseline, camera_type, use_roi=is_roi
+                )
+
 
             # point_cloud_list.extend(point_cloud_list_RAFT)
             # colors_list.extend(colors_list_RAFT)
@@ -500,7 +523,7 @@ for situation, variations in pairs.items():
                 #pc = pcGen.point_cloud_correction(pc, model)
                 #pcGen.process_point_cloud(point_cloud, eps, min_samples, base_filename) #This is DBSCAN process
                 # colors = original_cloud_colors = np.ones_like(point_cloud) * [255, 0, 0]
-                centroids = pcGen_RAFT.process_point_cloud(pc, eps, min_samples, f"{base_filename}_person{counter}")
+                centroids = pcGen_ML.process_point_cloud(pc, eps, min_samples, f"{base_filename}_person{counter}", cl)
                 
 
                 m_initial = 50 #This is an aproximation
@@ -514,27 +537,27 @@ for situation, variations in pairs.items():
                     
                     if y_min is not None and y_max is not None:
                         print(f"Para el centroide con z = {centroids[0][2]}, el rango de Y es: Y_min = {y_min}, Y_max = {y_max}")
-                        print(f"La altura de la persona {counter+1} es de {abs(y_max - y_min)}")
+                        print(f"La altura de la persona {counter+1} es de {abs(y_max - y_min)}\n")
                         heights.append(y_max-y_min)
                         alturas.append(y_max-y_min)
                     else:
                         print("No se encontraron puntos en el rango óptimo para este centroide.")
                 counter += 1
-                print(centroids)
+                
             
-                # z_estimations = [centroid[2] for centroid in centroids] if centroids is not None else []
-                # data.append({
-                #     "situation": situation + "_" + letter,
-                #     **{f"z_estimation_{i+1}": z for i, z in enumerate(z_estimations)}
-                # })
-            data_height.append(heights)
+                z_estimations = [centroid[2] for centroid in centroids] if centroids is not None else []
+                data.append({
+                    "situation": situation + "_" + letter,
+                    **{f"z_estimation_{i+1}": z for i, z in enumerate(z_estimations)}
+                })
+            # data_height.append(heights)
             
             
-            heights_estimations = [height for height in heights] if heights is not None else []
-            data.append({
-                "situation": situation + "_" + letter,
-                **{f"h_estimation_{i+1}": z for i, z in enumerate(heights_estimations)}
-            })
+            # heights_estimations = [height for height in heights] if heights is not None else []
+            # data.append({
+            #     "situation": situation + "_" + letter,
+            #     **{f"h_estimation_{i+1}": z for i, z in enumerate(heights_estimations)}
+            # })
           
     except Exception as e:
         print(f"Error procesando {situation}: {e}")    
@@ -546,15 +569,15 @@ for situation, variations in pairs.items():
 
 if len(data) > 0:
     # Guardar dataset como CSV
-    dataset_path = f"../datasets/data/z_estimation_{camera_type}_{mask_type}_heights_train.csv"
+    dataset_path = f"../datasets/data/{method_used}_z_estimation_{camera_type}_{mask_type}_train.csv"
 
     if not os.path.exists(os.path.dirname(dataset_path)):
         os.makedirs(os.path.dirname(dataset_path))
 
     max_z_count = max(len(row) - 1 for row in data) # -1 porque situation no es una columna z_estimation
 
-    # fieldnames = ["situation"] + [f"z_estimation_{i+1}" for i in range(max_z_count)]
-    fieldnames = ["situation"] + [f"h_estimation_{i+1}" for i in range(max_z_count)]
+    fieldnames = ["situation"] + [f"z_estimation_{i+1}" for i in range(max_z_count)]
+    # fieldnames = ["situation"] + [f"h_estimation_{i+1}" for i in range(max_z_count)]
 
 
     with open(dataset_path, "w", newline='') as csvfile:

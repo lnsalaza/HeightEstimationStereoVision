@@ -115,7 +115,7 @@ else:
 # inverse-project
 depth = (fx * baseline) / (-disp + (cx2 - cx1))
 H, W = depth.shape
-xx, yy = np.meshgrid(np.arange(W), np.arange(H))
+xx, yy = np.meshgrid(np.arange(W), np.arange(H), indexing='ij')
 points_grid = np.stack(((xx-cx1)/fx, (yy-cy)/fy, np.ones_like(xx)), axis=0) * depth
 
 # mask = np.ones((H, W), dtype=bool)

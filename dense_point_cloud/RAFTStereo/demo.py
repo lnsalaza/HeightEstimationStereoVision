@@ -7,13 +7,15 @@ import numpy as np
 import torch
 from tqdm import tqdm
 from pathlib import Path
-from core.raft_stereo import RAFTStereo
-from core.utils.utils import InputPadder
+from RAFTStereo.core.raft_stereo import RAFTStereo
+from RAFTStereo.core.utils.utils import InputPadder
 from PIL import Image
 from matplotlib import pyplot as plt
 
 
 DEVICE = 'cuda'
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 def load_image(imfile):
     img = np.array(Image.open(imfile)).astype(np.uint8)
@@ -46,6 +48,7 @@ def demo(args):
             image1, image2 = padder.pad(image1, image2)
 
             _, flow_up = model(image1, image2, iters=args.valid_iters, test_mode=True)
+            flow_up = -flow_up
             flow_up = padder.unpad(flow_up).squeeze()
 
             disparities.append(flow_up.cpu().numpy().squeeze())
@@ -53,7 +56,7 @@ def demo(args):
             file_stem = imfile1.split('/')[-2]
             if args.save_numpy:
                 np.save(output_directory / f"{file_stem}.npy", flow_up.cpu().numpy().squeeze())
-            plt.imsave(output_directory / f"{file_stem}.png", -flow_up.cpu().numpy().squeeze(), cmap='jet')
+            plt.imsave(output_directory / f"{file_stem}.png", flow_up.cpu().numpy().squeeze(), cmap='jet')
 
     return disparities
 
