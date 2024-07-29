@@ -92,8 +92,6 @@ def calculate_error(df):
         print(f"Error: Missing column in DataFrame during error calculation: {e}")
     except Exception as e:
         print(f"Unexpected error in calculate_error: {e}")
-
-
 # Load and preprocess training data
 training_data_filepath = "data/matlab_1/heights/h_correction_LASER2/h_train_gt_alturas.csv"
 training_data = load_data(training_data_filepath, "h_true")
