@@ -1,29 +1,50 @@
 import open3d as o3d
 import numpy as np
+from sklearn.cluster import DBSCAN
+def visualize_sparse_point_cloud(pcd_file, eps=100, min_samples=6):
 
-def visualize_sparse_point_cloud(pcd_file, centroid_file=None):
-
-    # Leer la nube de puntos y los centroides
+    # Leer la nube de puntos
     pcd = o3d.io.read_point_cloud(pcd_file)
-    centroid_cloud = o3d.io.read_point_cloud(centroid_file)
-    origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10, origin=[0,0,0])
+    points = np.asarray(pcd.points)
+    colors = np.array([[0, 0, 1] for i in range(len(pcd.points))])
 
-    # Obtener el Axis-Aligned Bounding Box (AABB)
+# Asignar los colores a la nube de puntos
+    pcd.colors = o3d.utility.Vector3dVector(colors)
+
+    # Aplicar DBSCAN
+    db = DBSCAN(eps=eps, min_samples=min_samples).fit(points)
+    labels = db.labels_
+
+    # Encontrar el número de clusters (excluyendo ruido)
+    unique_labels = set(labels)
+    unique_labels.discard(-1)  # Eliminar el ruido (-1)
+
+
+     # Obtener el Axis-Aligned Bounding Box (AABB)
     aabb = pcd.get_axis_aligned_bounding_box()
     aabb.color = (1, 0, 0)
-    
-    # Obtener el Oriented Bounding Box (OBB)
-    obb = pcd.get_oriented_bounding_box()
-    obb.color = (0, 1, 0)
-    
+
+    # Crear visualización de clusters y centroides
+    geometries = [pcd, aabb]
+    origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10, origin=[0, 0, 0])
+    geometries.append(origin)
+
+    for label in unique_labels:
+        cluster_points = points[labels == label]
+        centroid = cluster_points.mean(axis=0)
+        
+        # Crear una pequeña esfera en el centroide para visualizarlo
+        centroid_sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.5)
+        centroid_sphere.translate(centroid)
+        centroid_sphere.paint_uniform_color([1, 0, 0])  # Color rojo para el centroide
+        geometries.append(centroid_sphere)
+
     # Crear el visualizador
     viewer = o3d.visualization.Visualizer()
     viewer.create_window()
 
     # Visualizar las geometrías
-    #o3d.visualization.draw_geometries([pcd, origin, aabb])
-    o3d.visualization.draw_geometries([pcd, centroid_cloud, origin, aabb])
-
+    o3d.visualization.draw_geometries(geometries)
 
     # Destruir la ventana del visualizador
     viewer.destroy_window()
@@ -72,7 +93,6 @@ def visualize_dense_point_cloud(pcd_file):
     mark_lines = create_mark_lines()
     # Leer la nube de puntos densa
     pcd = o3d.io.read_point_cloud(pcd_file)
-
     # # ESCALADO BETA
     # scale_factor = 1.0
     # scaling_matrix = np.eye(4)
@@ -80,7 +100,7 @@ def visualize_dense_point_cloud(pcd_file):
 
     # pcd = pcd.transform(scaling_matrix)
 
-    z_min, z_max = 0, 1000
+    z_min, z_max = 0, 1000000
     bounding_box = o3d.geometry.AxisAlignedBoundingBox(min_bound=(-float('inf'), -float('inf'), z_min), max_bound=(float('inf'), float('inf'), z_max))
     cropped_pcd = pcd.crop(bounding_box)
 
@@ -91,8 +111,8 @@ def visualize_dense_point_cloud(pcd_file):
     viewer.create_window()
     
     # Agregar la geometría
-    #viewer.add_geometry(pcd)
-    viewer.add_geometry(cropped_pcd)
+    #viewer.add_geometry(cropped_pcd)
+    viewer.add_geometry(pcd)
     viewer.add_geometry(origin)
     # viewer.add_geometry(mark_lines)
     # Configurar opciones de renderizado
@@ -119,8 +139,8 @@ def print_centroid_z_coordinates(centroid_file):
 if __name__ == "__main__":
 
     config = "matlab_1"
-    mask = "keypoint"
-    situacion = "100_a"
+    mask = "roi"
+    situacion = "150_a"
 
     filepath = f"./point_clouds/{config}/{mask}_disparity/{config}_{situacion}"
 
@@ -130,14 +150,14 @@ if __name__ == "__main__":
 
     
     # Visualización de la nube de puntos dispersa
-    sparse_pcd_file = f"{filepath}_person0_original.ply"
-    centroid_file = f"{filepath}_person0_centroids.ply"
+    sparse_pcd_file = f"{filepath}_person1_original.ply"
+    # centroid_file = f"{filepath}_person0_centroids.ply"
 
     # Imprimir coordenadas Z de los centroides
     # print_centroid_z_coordinates(centroid_file)
     
     # Visualizar la nube de puntos dispersa
-    visualize_sparse_point_cloud(sparse_pcd_file, centroid_file)
+    visualize_dense_point_cloud(sparse_pcd_file)
 
     
 

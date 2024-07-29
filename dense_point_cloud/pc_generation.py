@@ -131,7 +131,7 @@ def create_point_cloud(points, colors=None):
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(points)
     if colors is not None:
-        pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)
+        pcd.colors = o3d.utility.Vector3dVector(colors / 255)
     return pcd
 
 def save_point_cloud(point_cloud, colors, filename):
@@ -257,7 +257,7 @@ def point_cloud_correction(points, model_y, model_z):
     
     # Actualizar las coordenadas Z de la nube de puntos con las predicciones corregidas
     # corrected_points = np.column_stack((Xy, z_pred))
-    corrected_points = np.column_stack((x_pred,y_pred, z_pred))
+    corrected_points = np.column_stack((x_pred, y_pred, z_pred))
 
     return corrected_points
 

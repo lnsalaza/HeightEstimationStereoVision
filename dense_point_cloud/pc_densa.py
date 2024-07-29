@@ -319,7 +319,6 @@ def get_centroids(point_cloud, labels):
             cluster_points = point_cloud[labels == label]
             centroid = np.mean(cluster_points, axis=0)
             centroids.append(centroid)
-            print("z = ", str(centroid[2]))
         return np.array(centroids)
 
 def create_point_cloud(points, colors=None):

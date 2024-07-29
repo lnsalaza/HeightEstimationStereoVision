@@ -6,7 +6,12 @@ import string
 import joblib
 import numpy as np
 import pc_generation as pcGen
+import pc_generation_ML as pcGen_ML
 import matplotlib.pyplot as plt
+
+
+from bridge_selective import get_SELECTIVE_disparity_map
+from bridge_raft import get_RAFT_disparity_map
 # Definición de los videos y matrices de configuración
 configs = {
     'matlab_1': {
@@ -212,12 +217,12 @@ def read_image_pairs_by_distance(base_folder):
                     left_img_path = os.path.join(subdir, left_img)
                     right_img_path = os.path.join(subdir, corresponding_right_img)
                     
-                    # Lee las imágenes con OpenCV
-                    img_left = cv2.imread(left_img_path)
-                    img_right = cv2.imread(right_img_path)
+                    # # Lee las imágenes con OpenCV
+                    # img_left = cv2.imread(left_img_path)
+                    # img_right = cv2.imread(right_img_path)
                     
-                    if img_left is not None and img_right is not None:
-                        image_pairs_by_distance[distance].append((img_left, img_right))
+                    if left_img_path is not None and right_img_path is not None:
+                        image_pairs_by_distance[distance].append((left_img_path, right_img_path))
                     else:
                         print(f"Error al leer las imágenes: {left_img_path} o {right_img_path}")
     
@@ -275,14 +280,25 @@ def get_adjusted_situation(situation, data):
 data = []
 data_height = []
 camera_type = 'matlab_1'
-mask_type = 'keypoint'
+mask_type = 'roi'
 is_roi = (mask_type == "roi")
 situation = "450_600"
 model_path = configs[camera_type]['model']
 alphabet = string.ascii_lowercase
 # Cargar el modelo de regresión lineal entrenado
-model_z = joblib.load(model_path)
-# model_y = joblib.load("../datasets/models/matlab_1/height_lr.pkl")
+model = joblib.load(model_path)
+method_used = "RAFT" #OPTIONS: "SGBM". "RAFT", "SELECTIVE"
+
+
+print(f"{method_used} ESTA SIENDO USADO")
+fx, fy, cx1, cy = 1429.4995220185822, 1430.4111785502332, 929.8227256572083, 506.4722541384677
+cx2 = 936.8035788332203
+baseline = 32.95550620237698 # in millimeters
+
+
+# Definir si se debe aplicar la corrección de la nube de puntos
+apply_correction = False
+
 
 ################################################################################################################################
 
@@ -437,15 +453,21 @@ model_z = joblib.load(model_path)
 
 
 ################################################################################################################################
-pairs = read_image_pairs_by_distance('../images/calibration_results/matlab_1/validation')
-
+pairs = read_image_pairs_by_distance('../images/calibration_results/matlab_1/flexometer')
+alphabet = string.ascii_lowercase
 alturas = []
- 
+
+def visualize_images(window_name, images, size):
+    cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
+    cv2.resizeWindow(window_name, size[0], size[1])
+    cv2.imshow(window_name, images)
+
+
 for situation, variations in pairs.items():
     try:
 
         for variation, letter in zip(variations, alphabet):
-            print(f"\nProcesando situación: {situation} | Variante {letter}")
+            print(f"\n \n Procesando situación: {situation} | Variante {letter}")
             #(img_l, img_r), Q = extract_situation_frames(camera_type, situation, False, False)
 
             MATRIX_Q = configs[camera_type]['MATRIX_Q']
@@ -453,28 +475,57 @@ for situation, variations in pairs.items():
             Q = fs.getNode(configs[camera_type]['disparity_to_depth_map']).mat()
             fs.release()
 
-
-            img_l = variation[0]
-            img_r = variation[1]
             
-     
-            
-            disparity = pcGen.compute_disparity(img_l, img_r, configs[camera_type])
 
-            # # Generar nube de puntos densa sin filtrado adicional
-            dense_point_cloud, dense_colors = pcGen.disparity_to_pointcloud(disparity, Q, img_l)
-            dense_point_cloud = dense_point_cloud.astype(np.float64)
+            img_l_path = variation[0]
+            img_r_path = variation[1]
 
-            # Corrección de nube densa 
-            # dense_point_cloud = pcGen.point_cloud_correction(dense_point_cloud, model)
+            # Leer las imágenes con OpenCV y convertirlas a RGB
+            img_left = cv2.imread(img_l_path)
+            img_right = cv2.imread(img_r_path)
+            img_left = cv2.cvtColor(img_left, cv2.COLOR_BGR2RGB)
+            img_right = cv2.cvtColor(img_right, cv2.COLOR_BGR2RGB)
 
-            # base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}_{letter}_corrected"
+
+            # Calcular la disparidad según el método seleccionado
+            if method_used == "SGBM":
+                disparity = pcGen.compute_disparity(img_left, img_right, configs[camera_type])
+            elif method_used == "RAFT":
+                disparity = get_RAFT_disparity_map(
+                    restore_ckpt="RAFTStereo/models/raftstereo-middlebury.pth",
+                    left_imgs=img_l_path,
+                    right_imgs=img_r_path,
+                    save_numpy=True
+                )
+            elif method_used == "SELECTIVE":
+                disparity = get_SELECTIVE_disparity_map(
+                    restore_ckpt="Selective_IGEV/pretrained_models/middlebury_train.pth",
+                    left_imgs=img_l_path,
+                    right_imgs=img_r_path,
+                    save_numpy=True
+                )
+            else:
+                raise ValueError(f"Método de disparidad no reconocido: {method_used}")
+
+            # Generar nube de puntos densa
+            if method_used == "SGBM":
+                dense_point_cloud, dense_colors = pcGen.disparity_to_pointcloud(disparity, Q, img_left)
+            else:
+                dense_point_cloud, dense_colors = pcGen_ML.disparity_to_pointcloud(disparity, fx, fy, cx1, cx2, cy, baseline, img_left, use_max_disparity=True)
+
+            # Generar el nombre de archivo base para guardar la nube de puntos
             base_filename = f"./point_clouds/{camera_type}/{mask_type}_disparity/{camera_type}_{situation}_{letter}"
 
+            # Corrección de nube densa (opcional)
+            if apply_correction:
+                dense_point_cloud = pcGen.point_cloud_correction(dense_point_cloud, model)
+                base_filename += "_corregido"
+
+            
             pcGen.save_dense_point_cloud(dense_point_cloud, dense_colors, base_filename)
 
             # # Generar nube de puntos con filtrado y aplicar DBSCAN
-            # point_cloud, colors, eps, min_samples = pcGen.generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=is_roi)
+            # point_cloud, colors, eps, min_samples = pcGen.generate_filtered_point_cloud(img_left, disparity, Q, camera_type, use_roi=is_roi)
 
             # # Correción de nube no densa
             # point_cloud = pcGen.point_cloud_correction(point_cloud, model)
@@ -482,18 +533,31 @@ for situation, variations in pairs.items():
             # original_filename = f"{base_filename}_original.ply"
             # pcGen.save_point_cloud(point_cloud, colors, original_filename)
             # Generar nube de puntos con filtrado y aplicar DBSCAN
-            point_cloud_list, colors_list, eps, min_samples = pcGen.generate_filtered_point_cloud(img_l, disparity, Q, camera_type,  use_roi=is_roi)
+
+            # Generar nube de puntos filtrada
+            if method_used == "SGBM":
+                point_cloud_list, colors_list, eps, min_samples = pcGen.generate_filtered_point_cloud(
+                    img_left, disparity, Q, camera_type, use_roi=is_roi
+                )
+            else:
+                point_cloud_list, colors_list, eps, min_samples = pcGen_ML.generate_filtered_point_cloud(
+                    img_left, disparity, fx, fy, cx1, cx2, cy, baseline, camera_type, use_roi=is_roi
+                )
+
+
+            # point_cloud_list.extend(point_cloud_list_RAFT)
+            # colors_list.extend(colors_list_RAFT)
             counter = 0
             heights = []
             for pc, cl in zip(point_cloud_list, colors_list):
                 # pc = pcGen.point_cloud_correction(pc, model_y, model_z)
-                pc = pcGen.z_correction(pc, model_z)
+                pc = pcGen.z_correction(pc, model)
                 #pcGen.process_point_cloud(point_cloud, eps, min_samples, base_filename) #This is DBSCAN process
                 # colors = original_cloud_colors = np.ones_like(point_cloud) * [255, 0, 0]
-                centroids = pcGen.process_point_cloud(pc, eps, min_samples, f"{base_filename}_person{counter}")
+                centroids = pcGen_ML.process_point_cloud(pc, eps, min_samples, f"{base_filename}_person{counter}", cl)
                 
 
-                m_initial = 30 #This is an aproximation
+                m_initial = 50 #This is an aproximation
                 # optimal_range = [centroids[0][2] - m_initial, centroids[0][2] + m_initial]
 
                 # AQUI SE NECESITA OBTENER LOS PUNTOS DE point_cloud QUE ESTEN EN EL RAGO OPTIMO APARATIR DE LAS COORDENDAS DEL CENTROIDE
@@ -520,17 +584,17 @@ for situation, variations in pairs.items():
                     else:
                         print("No se encontraron puntos en el rango óptimo para este centroide.")
                 counter += 1
-                print(centroids)
+                
             
-                # z_estimations = [centroid[2] for centroid in centroids] if centroids is not None else []
-                # data.append({
-                #     "situation": situation + "_" + letter,
-                #     **{f"z_estimation_{i+1}": z for i, z in enumerate(z_estimations)}
-                # })
-            data_height.append(heights)
+                z_estimations = [centroid[2] for centroid in centroids] if centroids is not None else []
+                data.append({
+                    "situation": situation + "_" + letter,
+                    **{f"z_estimation_{i+1}": z for i, z in enumerate(z_estimations)}
+                })
+            # data_height.append(heights)
             
             
-            heights_estimations = [height for height in heights] if heights is not None else []
+            # heights_estimations = [height for height in heights] if heights is not None else []
             # data.append({
             #     "situation": situation + "_" + letter,
             #     **{f"h_estimation_{i+1}": z for i, z in enumerate(heights_estimations)}
@@ -547,7 +611,8 @@ for situation, variations in pairs.items():
 if len(data) > 0:
     # Guardar dataset como CSV
     # dataset_path = f"../datasets/data/{camera_type}/z_estimation_{camera_type}_{mask_type}_h_validation-LASER2_model-.csv"
-    dataset_path = f"../datasets/data/{camera_type}/validation-z_corrected-LASER2_model-.csv"
+    # dataset_path = f"../datasets/data/{camera_type}/validation-z_corrected-LASER2_model-.csv"
+    dataset_path = f"../datasets/data/{method_used}_z_estimation_{camera_type}_{mask_type}_train.csv"
 
     if not os.path.exists(os.path.dirname(dataset_path)):
         os.makedirs(os.path.dirname(dataset_path))
