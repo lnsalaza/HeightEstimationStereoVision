@@ -5,6 +5,13 @@ import joblib
 import matplotlib.pyplot as plt
 from sklearn.linear_model import LinearRegression
 
+CONFIG = "matlab_1"
+METHOD_USED = "RAFT" #OPTIONS: "SGBM". "RAFT", "SELECTIVE"
+
+
+FILE_NAME = f"z_estimation_chessboard_ground_truth_keypoint"
+FILE_NAME_VAL = f"z_estimation_validation_keypoint"
+
 def save_plot_height(df, original, path, y_lim=None):
     try:
         plt.figure(figsize=(12, 6))
@@ -93,7 +100,7 @@ def calculate_error(df):
     except Exception as e:
         print(f"Unexpected error in calculate_error: {e}")
 # Load and preprocess training data
-training_data_filepath = "data/matlab_1/heights/h_correction_LASER2/h_train_gt_alturas.csv"
+training_data_filepath = f"data/{CONFIG}/{METHOD_USED}/{FILE_NAME}_train.csv"
 training_data = load_data(training_data_filepath, "h_true")
 training_data = preprocess_training_data(training_data)
 
@@ -102,9 +109,9 @@ model = linear_regression(training_data[['z_true']], training_data['correction_f
 # save_model(model, './models/matlab_1/height/LASER2/h_gt_alturas_model.pkl')
 
 # Load and preprocess validation data
-validation_data_filepath = "data/matlab_1/heights/h_correction_LASER2/validation-z_corrected-LASER2_model-.csv"
+validation_data_filepath = f"data/{CONFIG}/{METHOD_USED}/{FILE_NAME_VAL}_validation.csv"
 validation_data = load_data(validation_data_filepath, "situation")
-validation_data["h_true"] = 173
+validation_data["h_true"] = 1730.0 if METHOD_USED != 'SGBM' else 173.0
 validation_data = validation_data[validation_data['z_estimation'] >= 176.0]
 
 z_estimation = validation_data[['z_estimation']].rename(columns={'z_estimation': 'z_true'})
@@ -112,6 +119,9 @@ validation_data['predicted_correction_factor'] = model.predict(z_estimation)
 validation_data['corrected_h_estimation'] = validation_data['h_estimation'] * validation_data['predicted_correction_factor']
 validation_data, error = calculate_error(validation_data)
 
+print(training_data)
+print(validation_data)
+print(error)
 # Save data and plotss
 # training_data.to_excel('data/matlab_1/tables/heights/laser2.xlsx', index=False)
 # save_plot_height(training_data, True, 'graficas/matlab_1/heights/laser2_train.png')

@@ -21,7 +21,7 @@ configs = {
         # 'RIGHT_VIDEO': '../videos/rectified/matlab_1/16_35_42_26_02_2024_VID_RIGHT.avi',
         'MATRIX_Q': '../config_files/matlab_1/newStereoMap.xml',
         'disparity_to_depth_map': 'disparity2depth_matrix',
-        'model': "../datasets/models/matlab_1/LASER2.pkl",
+        'model': "../datasets/models/matlab_1/depth/SELECTIVE.pkl",
         'numDisparities': 68,
         'blockSize': 7, 
         'minDisparity': 5,
@@ -280,14 +280,14 @@ def get_adjusted_situation(situation, data):
 data = []
 data_height = []
 camera_type = 'matlab_1'
-mask_type = 'roi'
+mask_type = 'keypoint'
 is_roi = (mask_type == "roi")
 situation = "450_600"
 model_path = configs[camera_type]['model']
 alphabet = string.ascii_lowercase
 # Cargar el modelo de regresión lineal entrenado
 model = joblib.load(model_path)
-method_used = "RAFT" #OPTIONS: "SGBM". "RAFT", "SELECTIVE"
+method_used = "SELECTIVE" #OPTIONS: "SGBM". "RAFT", "SELECTIVE"
 
 
 print(f"{method_used} ESTA SIENDO USADO")
@@ -335,7 +335,7 @@ apply_correction = False
 #         heights = []
 #         for pc, cl, letter in zip(point_cloud_list, colors_list, alphabet):
 #             # pc = pcGen.point_cloud_correction(pc, model)
-#             pc = pcGen.z_correction(pc, model_z)
+#             pc = pcGen.z_correction(pc, model)
 #             #pcGen.process_point_cloud(point_cloud, eps, min_samples, base_filename) #This is DBSCAN process
 #             # colors = original_cloud_colors = np.ones_like(point_cloud) * [255, 0, 0]
 #             centroids = pcGen.process_point_cloud(pc, eps, min_samples, f"{base_filename}_{letter}")
@@ -453,7 +453,7 @@ apply_correction = False
 
 
 ################################################################################################################################
-pairs = read_image_pairs_by_distance('../images/calibration_results/matlab_1/flexometer')
+pairs = read_image_pairs_by_distance('../images/calibration_results/matlab_1/heights')
 alphabet = string.ascii_lowercase
 alturas = []
 
@@ -518,7 +518,7 @@ for situation, variations in pairs.items():
 
             # Corrección de nube densa (opcional)
             if apply_correction:
-                dense_point_cloud = pcGen.point_cloud_correction(dense_point_cloud, model)
+                dense_point_cloud = pcGen.z_correction(dense_point_cloud, model)
                 base_filename += "_corregido"
 
             
@@ -551,7 +551,9 @@ for situation, variations in pairs.items():
             heights = []
             for pc, cl in zip(point_cloud_list, colors_list):
                 # pc = pcGen.point_cloud_correction(pc, model_y, model_z)
-                pc = pcGen.z_correction(pc, model)
+                if apply_correction:
+                    pc = pcGen.z_correction(pc, model)
+                    
                 #pcGen.process_point_cloud(point_cloud, eps, min_samples, base_filename) #This is DBSCAN process
                 # colors = original_cloud_colors = np.ones_like(point_cloud) * [255, 0, 0]
                 centroids = pcGen_ML.process_point_cloud(pc, eps, min_samples, f"{base_filename}_person{counter}", cl)
@@ -586,11 +588,11 @@ for situation, variations in pairs.items():
                 counter += 1
                 
             
-                z_estimations = [centroid[2] for centroid in centroids] if centroids is not None else []
-                data.append({
-                    "situation": situation + "_" + letter,
-                    **{f"z_estimation_{i+1}": z for i, z in enumerate(z_estimations)}
-                })
+                # z_estimations = [centroid[2] for centroid in centroids] if centroids is not None else []
+                # data.append({
+                #     "situation": situation + "_" + letter,
+                #     **{f"z_estimation_{i+1}": z for i, z in enumerate(z_estimations)}
+                # })
             # data_height.append(heights)
             
             
@@ -612,7 +614,7 @@ if len(data) > 0:
     # Guardar dataset como CSV
     # dataset_path = f"../datasets/data/{camera_type}/z_estimation_{camera_type}_{mask_type}_h_validation-LASER2_model-.csv"
     # dataset_path = f"../datasets/data/{camera_type}/validation-z_corrected-LASER2_model-.csv"
-    dataset_path = f"../datasets/data/{method_used}_z_estimation_{camera_type}_{mask_type}_train.csv"
+    dataset_path = f"../datasets/data/{camera_type}/{method_used}/z_estimation_heights_{mask_type}_validation.csv"
 
     if not os.path.exists(os.path.dirname(dataset_path)):
         os.makedirs(os.path.dirname(dataset_path))

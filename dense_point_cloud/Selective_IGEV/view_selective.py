@@ -14,7 +14,7 @@ cx2 = 936.8035788332203
 baseline = 32.95550620237698 # en milímetros
 
 
-pairs = util.read_image_pairs_by_distance("./datasets/CIDIS/validation")
+pairs = util.read_image_pairs_by_distance("../../images/calibration_results/matlab_1/flexometer/400_120h/14_14_48_13_05_2024_IMG_LEFT.jpg")
 alphabet = string.ascii_lowercase
 
 output_directory = "demo_output"

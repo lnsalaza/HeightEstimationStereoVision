@@ -139,8 +139,8 @@ def print_centroid_z_coordinates(centroid_file):
 if __name__ == "__main__":
 
     config = "matlab_1"
-    mask = "roi"
-    situacion = "150_a"
+    mask = "keypoint"
+    situacion = "400_120h_a"
 
     filepath = f"./point_clouds/{config}/{mask}_disparity/{config}_{situacion}"
 
@@ -150,14 +150,14 @@ if __name__ == "__main__":
 
     
     # Visualización de la nube de puntos dispersa
-    sparse_pcd_file = f"{filepath}_person1_original.ply"
+    sparse_pcd_file = f"{filepath}_person0_original.ply"
     # centroid_file = f"{filepath}_person0_centroids.ply"
 
     # Imprimir coordenadas Z de los centroides
     # print_centroid_z_coordinates(centroid_file)
     
     # Visualizar la nube de puntos dispersa
-    visualize_dense_point_cloud(sparse_pcd_file)
+    visualize_sparse_point_cloud(sparse_pcd_file)
 
     
 
