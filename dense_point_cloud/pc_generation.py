@@ -49,55 +49,75 @@ def compute_disparity(left_image, right_image, config):
     left_image = cv2.cvtColor(left_image, cv2.COLOR_BGR2GRAY)
     right_image = cv2.cvtColor(right_image, cv2.COLOR_BGR2GRAY)
 
-    blockSize_var = config['blockSize']
-    P1 = 8 * 3 * (blockSize_var ** 2)  
-    P2 = 32 * 3 * (blockSize_var ** 2) 
+    
+    P1 = 8 * 3 * (config['blockSize'] ** 2)  
+    P2 = 32 * 3 * (config['blockSize'] ** 2) 
+    mode_str = config['mode']
 
+    if mode_str == "StereoSGBM_MODE_SGBM":
+        mode = cv2.StereoSGBM_MODE_SGBM
+    elif mode_str == "StereoSGBM_MODE_SGBM_3WAY":
+        mode = cv2.StereoSGBM_MODE_SGBM_3WAY
+    elif mode_str == "StereoSGBM_MODE_HH":
+        mode = cv2.StereoSGBM_MODE_HH
+    elif mode_str == "StereoSGBM_MODE_HH4":
+        mode = cv2.StereoSGBM_MODE_HH4
+    else:
+        raise ValueError("Unknown mode: {}".format(mode_str))
+    
     stereo = cv2.StereoSGBM_create(
         numDisparities = config['numDisparities'],
-        blockSize = blockSize_var, 
-        minDisparity=config['blockSize'],
+        blockSize = config['blockSize'], 
+        minDisparity=config['minDisparity'],
         P1=P1,
         P2=P2,
         disp12MaxDiff=config['disp12MaxDiff'],
         uniquenessRatio=config['uniquenessRatio'],
         preFilterCap=config['preFilterCap'],
-        mode=config['mode']
+        mode=mode
     )
 
     # Calcular el mapa de disparidad de la imagen izquierda a la derecha
-    left_disp = stereo.compute(left_image, right_image)
-    #.astype(np.float32) / 16.0
+    left_disp = stereo.compute(left_image, right_image)#.astype(np.float32) / 16.0 ${PROBAR}
 
-    # Crear el matcher derecho basado en el matcher izquierdo para consistencia
-    right_matcher = cv2.ximgproc.createRightMatcher(stereo)
+    if config['wls_filter']:
+        # Crear el matcher derecho basado en el matcher izquierdo para consistencia
+        right_matcher = cv2.ximgproc.createRightMatcher(stereo)
 
-    # Calcular el mapa de disparidad de la imagen derecha a la izquierda
-    right_disp = right_matcher.compute(right_image, left_image)
+        # Calcular el mapa de disparidad de la imagen derecha a la izquierda
+        right_disp = right_matcher.compute(right_image, left_image)#.astype(np.float32) / 16.0 ${PROBAR}
 
-    # Crear el filtro WLS y configurarlo
-    wls_filter = cv2.ximgproc.createDisparityWLSFilter(matcher_left=stereo)
-    wls_filter.setLambda(lmbda)
-    wls_filter.setSigmaColor(sigma)
+        # Crear el filtro WLS y configurarlo
+        wls_filter = cv2.ximgproc.createDisparityWLSFilter(matcher_left=stereo)
+        wls_filter.setLambda(lmbda)
+        wls_filter.setSigmaColor(sigma)
 
-    # Filtrar el mapa de disparidad utilizando el filtro WLS
-    filtered_disp = wls_filter.filter(left_disp, left_image, disparity_map_right=right_disp)
+        # Filtrar el mapa de disparidad utilizando el filtro WLS
+        left_disp = wls_filter.filter(left_disp, left_image, disparity_map_right=right_disp)
 
-    # Normalización para la visualización o procesamiento posterior
-    #filtered_disp = cv2.normalize(src=filtered_disp, dst=filtered_disp, beta=0, alpha=255, norm_type=cv2.NORM_MINMAX)
-    # filtered_disp = np.uint8(filtered_disp)
-    return filtered_disp
+        # Normalización para la visualización 
+        # (Esta parte mejora la visibilidad de la nube de puntos generada posteriormente, pero acota la la disparidad modificando la estimacion de la profundidad)
+        # left_disp = cv2.normalize(src=left_disp, dst=left_disp, beta=0, alpha=255, norm_type=cv2.NORM_MINMAX)
+        # left_disp = np.uint8(left_disp)
+    return left_disp
 
 
 
 # REPROYECCIÒN DE DISPARIDAD A 3D
 
-def disparity_to_pointcloud(disparity, Q, image, custom_mask=None):
-    points_3D = cv2.reprojectImageTo3D(disparity, Q) 
+def disparity_to_pointcloud(disparity, Q, image, custom_mask=None, use_max_disparity = True):
+    points_3D = cv2.reprojectImageTo3D(disparity, Q)
+    mask = np.ones(disparity.shape, dtype=bool) 
+    
     mask = disparity > 0
+    if not use_max_disparity:
+        
+        max_disparity_threshold = np.max(disparity) / 2000
+        mask[1:][np.abs(points_3D[1:] - points_3D[:-1])[:, :, 2] > max_disparity_threshold] = False
+        mask[:, 1:][np.abs(points_3D[:, 1:] - points_3D[:, :-1])[:, :, 2] > max_disparity_threshold] = False
 
     if custom_mask is not None:
-        mask  = custom_mask > 0
+        mask  &= custom_mask > 0
 
     out_points = points_3D[mask]
     out_colors = image[mask]
@@ -156,27 +176,24 @@ def process_point_cloud(point_cloud, eps, min_samples, base_filename):
 
     return centroids
 
-def generate_all_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True, ):
+def generate_all_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True, use_max_disparity=True):
     
     if use_roi:
         seg = kp.get_segmentation(img_l)
         result_image = kp.apply_seg_mask(disparity, seg)
-        #save_image("../images/prediction_results/", result_image, "filtered_seg", False)
         eps, min_samples = 2, 3500
     else:
         keypoints = kp.get_keypoints(img_l)
-        result_image = kp.apply_keypoints_mask(disparity, keypoints)
-        #save_image("../images/prediction_results/", result_image, "filtered_keypoints", False)
-
+        result_image = kp.apply_keypoints_mask(disparity, keypoints)    
         eps = 50 if "matlab" in camera_type else 10
         min_samples = 6
 
-    point_cloud, colors = disparity_to_pointcloud(disparity, Q, img_l, result_image)
+    point_cloud, colors = disparity_to_pointcloud(disparity, Q, img_l, result_image, use_max_disparity=use_max_disparity)
     point_cloud = point_cloud.astype(np.float64)
     
     return point_cloud, colors, eps, min_samples
 
-def generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True, ):
+def generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True, use_max_disparity=True):
     result_image_list = []
     point_cloud_list = []
     colors_list = []
@@ -203,7 +220,7 @@ def generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True
         min_samples = 6
 
     for mask in result_image_list:
-        point_cloud, colors = disparity_to_pointcloud(disparity, Q, img_l, mask)
+        point_cloud, colors = disparity_to_pointcloud(disparity, Q, img_l, mask, use_max_disparity=use_max_disparity)
         point_cloud = point_cloud.astype(np.float64)
         point_cloud_list.append(point_cloud), colors_list.append(colors)
     
@@ -265,7 +282,7 @@ def point_cloud_correction(points, model):
 def save_dense_point_cloud(point_cloud, colors, base_filename):
     if not os.path.exists(os.path.dirname(base_filename)):
         os.makedirs(os.path.dirname(base_filename))
-    dense_filename = f"{base_filename}_dense.ply"
+    dense_filename = f"{base_filename}.ply"
     save_point_cloud(point_cloud, colors, dense_filename)
 
 

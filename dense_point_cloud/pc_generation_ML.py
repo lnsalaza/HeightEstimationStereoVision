@@ -79,7 +79,7 @@ def disparity_to_pointcloud(disparity, fx, fy, cx1, cx2, cy, baseline, image, cu
     
 
     if custom_mask is not None:
-        mask = custom_mask > 0
+        mask &= custom_mask > 0
 
     out_points = points_grid[mask].astype(np.float64)
     out_colors = image[mask].astype(np.float64)
@@ -134,7 +134,24 @@ def process_point_cloud(point_cloud, eps, min_samples, base_filename, colors=Non
 
     return centroids
 
-def generate_all_filtered_point_cloud(img_l, disparity, fx, fy, cx1, cx2, cy, baseline, camera_type, use_roi=True):
+# ACTUAL
+def get_centroid(point_cloud, eps, min_samples, base_filename, colors=None):
+    labels = apply_dbscan(point_cloud, eps, min_samples)
+    centroids = get_centroids(point_cloud, labels)
+
+    if centroids is not None:
+        centroid_colors = np.tile([[255, 0, 0]], (len(centroids), 1))
+        centroid_filename = f"{base_filename}_centroids.ply"
+        save_point_cloud(centroids, centroid_colors, centroid_filename)
+    if colors is None:
+        colors = np.ones_like(point_cloud) * [0, 0, 255]
+    original_filename = f"{base_filename}_original.ply"
+    save_point_cloud(point_cloud, colors, original_filename)
+
+    return centroids
+
+
+def generate_all_filtered_point_cloud(img_l, disparity, fx, fy, cx1, cx2, cy, baseline, camera_type, use_roi=True, use_max_disparity=True):
     if use_roi:
         seg = kp.get_segmentation(img_l)
         result_image = kp.apply_seg_mask(disparity, seg)
@@ -145,10 +162,10 @@ def generate_all_filtered_point_cloud(img_l, disparity, fx, fy, cx1, cx2, cy, ba
         eps = 50 if "matlab" in camera_type else 10
         min_samples = 6
 
-    point_cloud, colors = disparity_to_pointcloud(disparity, fx, fy, cx1, cx2, cy, baseline, img_l, result_image)
+    point_cloud, colors = disparity_to_pointcloud(disparity, fx, fy, cx1, cx2, cy, baseline, img_l, result_image, use_max_disparity=use_max_disparity)
     return point_cloud, colors, eps, min_samples
 
-def generate_filtered_point_cloud(img_l, disparity, fx, fy, cx1, cx2, cy, baseline, camera_type, use_roi=True):
+def generate_filtered_point_cloud(img_l, disparity, fx, fy, cx1, cx2, cy, baseline, camera_type, use_roi=True, use_max_disparity=True):
     result_image_list = []
     point_cloud_list = []
     colors_list = []
@@ -170,7 +187,7 @@ def generate_filtered_point_cloud(img_l, disparity, fx, fy, cx1, cx2, cy, baseli
         min_samples = 6
         
     for mask in result_image_list:
-        point_cloud, colors = disparity_to_pointcloud(disparity, fx, fy, cx1, cx2, cy, baseline, img_l, mask)
+        point_cloud, colors = disparity_to_pointcloud(disparity, fx, fy, cx1, cx2, cy, baseline, img_l, mask, use_max_disparity=use_max_disparity)
         point_cloud_list.append(point_cloud)
         colors_list.append(colors)
     

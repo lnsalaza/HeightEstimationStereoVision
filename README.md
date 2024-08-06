@@ -1,7 +1,7 @@
 # HeightEstimationStereoVision
 python rectification.py --input_type image --input_images_folder ../images/laser/groundTruth --output_images_folder ../images/calibration_results/matlab_1 --xml ../config_files/matlab_1/newStereoMap.xml
 
-
+py .\calibration.py --json ..\config_files\matlab_1\stereoParameters.json --xml ..\config_files\matlab_1\newStereoMap.xml --img_left ..\images\originals\IMG_LEFT.jpg --img_right ..\images\originals\IMG_RIGHT.jpg
 
 # TODO:
 ## 07/25/2024 BY: Elihan

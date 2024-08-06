@@ -7,8 +7,8 @@ import numpy as np
 import torch
 from tqdm import tqdm
 from pathlib import Path
-from RAFTStereo.core.raft_stereo import RAFTStereo
-from RAFTStereo.core.utils.utils import InputPadder
+from core.raft_stereo import RAFTStereo
+from core.utils.utils import InputPadder
 from PIL import Image
 from matplotlib import pyplot as plt
 
@@ -56,7 +56,7 @@ def demo(args):
             file_stem = imfile1.split('/')[-2]
             if args.save_numpy:
                 np.save(output_directory / f"{file_stem}.npy", flow_up.cpu().numpy().squeeze())
-            plt.imsave(output_directory / f"{file_stem}.png", flow_up.cpu().numpy().squeeze(), cmap='jet')
+                plt.imsave(output_directory / f"{file_stem}.png", flow_up.cpu().numpy().squeeze(), cmap='jet')
 
     return disparities
 
@@ -84,4 +84,4 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
 
-    disparities = demo(args)
+    demo(args)

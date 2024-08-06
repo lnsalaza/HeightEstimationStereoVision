@@ -3,17 +3,19 @@ import sys
 import numpy as np
 import cv2 as cv; cv2 = cv
  
-imgL = cv2.imread('../images/calibration_results/image_l.png', 0)
-imgR = cv2.imread('../images/calibration_results/image_r.png', 0)
+imgL = cv2.imread('../images/calibration_results/matlab_1/flexometer/150/14_03_37_13_05_2024_IMG_LEFT.jpg', 1)
+imgR = cv2.imread('../images/calibration_results/matlab_1/flexometer/150/14_03_37_13_05_2024_IMG_RIGHT.jpg', 1)
 
+imgL = cv2.cvtColor(imgL,cv2.COLOR_BGR2GRAY)
+imgR = cv2.cvtColor(imgR,cv2.COLOR_BGR2GRAY)
 # Aplicar el filtro bilateral
 sigma = 1.5  # Parámetro de sigma utilizado para el filtrado WLS.
 lmbda = 8000.0  # Parámetro lambda usado en el filtrado WLS.
 
 
-blockSize = 11
-min_disparity = 10
-max_disparity = 170
+blockSize = 7
+min_disparity = 5
+max_disparity = 80
 P1 = 8
 P2 = 32
 
@@ -23,14 +25,14 @@ stereo = cv2.StereoSGBM_create(
 	blockSize=blockSize,
 	P1=3*blockSize*blockSize * P1,
 	P2=3*blockSize*blockSize * P2,
-	disp12MaxDiff=0,
-	preFilterCap=0,
+	disp12MaxDiff=33,
+	preFilterCap=33,
 	uniquenessRatio=10,
 #	speckleWindowSize=100,
-#	speckleRange=1,
+	speckleRange=1,
 #	mode=cv.StereoSGBM_MODE_SGBM
 # 	mode=cv.StereoSGBM_MODE_HH
-	mode=cv.StereoSGBM_MODE_SGBM_3WAY
+	mode=cv.StereoSGBM_MODE_HH
 )
 
 
@@ -40,7 +42,7 @@ def redraw():
 	
 	# Calcular el mapa de disparidad de la imagen izquierda a la derecha
 	left_disp = stereo.compute(imgL, imgR).astype(np.float32) / 16.0
-
+	
 	# Crear el matcher derecho basado en el matcher izquierdo para consistencia
 	right_matcher = cv2.ximgproc.createRightMatcher(stereo)
 
@@ -54,9 +56,18 @@ def redraw():
 
 	# Filtrar el mapa de disparidad utilizando el filtro WLS
 	filtered_disp = wls_filter.filter(left_disp, imgL, disparity_map_right=right_disp)
+	# Calcular la profundidad máxima y mínima
+	min_depth = np.min(filtered_disp)
+	max_depth = np.max(filtered_disp)
+	prom_depth = np.mean(filtered_disp)
+	# Imprimir la profundidad máxima y mínima
+	print(f"Profundidad mínima: {min_depth}")
+	print(f"Profundidad máxima: {max_depth}")
+	print(f"Profundidad media: {prom_depth}")
 
+	
 	# Normalización para la visualización o procesamiento posterior
-	filtered_disp = cv2.normalize(src=filtered_disp, dst=filtered_disp, beta=0, alpha=255, norm_type=cv2.NORM_MINMAX)
+	#filtered_disp = cv2.normalize(src=filtered_disp, dst=None, beta=0, alpha=255, norm_type=cv2.NORM_MINMAX)
 	filtered_disp = np.uint8(filtered_disp)
 
 	cv.imshow("out", filtered_disp)

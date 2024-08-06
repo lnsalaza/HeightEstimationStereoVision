@@ -1,14 +1,63 @@
 import open3d as o3d
 import numpy as np
 from sklearn.cluster import DBSCAN
-def visualize_sparse_point_cloud(pcd_file, eps=100, min_samples=6):
+# def visualize_sparse_point_cloud(pcd_file, eps=100, min_samples=5000):
 
+#     # Leer la nube de puntos
+#     pcd = o3d.io.read_point_cloud(pcd_file)
+#     points = np.asarray(pcd.points)
+#     print(points.size)
+#     colors = np.array([[0, 0, 1] for i in range(len(pcd.points))])
+
+# # Asignar los colores a la nube de puntos
+#     pcd.colors = o3d.utility.Vector3dVector(colors)
+
+#     # Aplicar DBSCAN
+#     db = DBSCAN(eps=eps, min_samples=min_samples).fit(points)
+#     labels = db.labels_
+
+#     # Encontrar el número de clusters (excluyendo ruido)
+#     unique_labels = set(labels)
+#     unique_labels.discard(-1)  # Eliminar el ruido (-1)
+
+
+#      # Obtener el Axis-Aligned Bounding Box (AABB)
+#     aabb = pcd.get_axis_aligned_bounding_box()
+#     aabb.color = (1, 0, 0)
+
+#     # Crear visualización de clusters y centroides
+#     geometries = [pcd, aabb]
+#     origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10, origin=[0, 0, 0])
+#     geometries.append(origin)
+
+#     for label in unique_labels:
+#         cluster_points = points[labels == label]
+#         centroid = cluster_points.mean(axis=0)
+        
+#         # Crear una pequeña esfera en el centroide para visualizarlo
+#         centroid_sphere = o3d.geometry.TriangleMesh.create_sphere(radius=5)
+#         centroid_sphere.translate(centroid)
+#         centroid_sphere.paint_uniform_color([1, 0, 0])  # Color rojo para el centroide
+#         geometries.append(centroid_sphere)
+
+#     # Crear el visualizador
+#     viewer = o3d.visualization.Visualizer()
+#     viewer.create_window()
+    
+#     # Visualizar las geometrías
+#     o3d.visualization.draw_geometries(geometries)
+
+#     # Destruir la ventana del visualizador
+#     viewer.destroy_window()
+
+def visualize_sparse_point_cloud(pcd_file, eps=500, min_samples=10):
     # Leer la nube de puntos
     pcd = o3d.io.read_point_cloud(pcd_file)
     points = np.asarray(pcd.points)
+    print(points.shape[0])
     colors = np.array([[0, 0, 1] for i in range(len(pcd.points))])
 
-# Asignar los colores a la nube de puntos
+    # Asignar los colores a la nube de puntos
     pcd.colors = o3d.utility.Vector3dVector(colors)
 
     # Aplicar DBSCAN
@@ -19,22 +68,21 @@ def visualize_sparse_point_cloud(pcd_file, eps=100, min_samples=6):
     unique_labels = set(labels)
     unique_labels.discard(-1)  # Eliminar el ruido (-1)
 
-
-     # Obtener el Axis-Aligned Bounding Box (AABB)
+    # Obtener el Axis-Aligned Bounding Box (AABB)
     aabb = pcd.get_axis_aligned_bounding_box()
     aabb.color = (1, 0, 0)
 
     # Crear visualización de clusters y centroides
     geometries = [pcd, aabb]
-    origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10, origin=[0, 0, 0])
-    geometries.append(origin)
+    # origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10, origin=[0, 0, 0])
+    # geometries.append(origin)
 
     for label in unique_labels:
         cluster_points = points[labels == label]
         centroid = cluster_points.mean(axis=0)
-        
+
         # Crear una pequeña esfera en el centroide para visualizarlo
-        centroid_sphere = o3d.geometry.TriangleMesh.create_sphere(radius=0.5)
+        centroid_sphere = o3d.geometry.TriangleMesh.create_sphere(radius=1.5)
         centroid_sphere.translate(centroid)
         centroid_sphere.paint_uniform_color([1, 0, 0])  # Color rojo para el centroide
         geometries.append(centroid_sphere)
@@ -43,8 +91,16 @@ def visualize_sparse_point_cloud(pcd_file, eps=100, min_samples=6):
     viewer = o3d.visualization.Visualizer()
     viewer.create_window()
 
-    # Visualizar las geometrías
-    o3d.visualization.draw_geometries(geometries)
+    # Ajustar las opciones de renderización
+    # opt = viewer.get_render_option()
+    # opt.point_size = 1  # Tamaño de los puntos
+
+    # Añadir geometrías al visualizador
+    for geometry in geometries:
+        viewer.add_geometry(geometry)
+    
+    # Iniciar el visualizador
+    viewer.run()
 
     # Destruir la ventana del visualizador
     viewer.destroy_window()
@@ -139,10 +195,10 @@ def print_centroid_z_coordinates(centroid_file):
 if __name__ == "__main__":
 
     config = "matlab_1"
-    mask = "roi"
-    situacion = "150_a"
+    mask = "keypoint"
+    situacion = "150 y 500_a"
 
-    filepath = f"./point_clouds/{config}/{mask}_disparity/{config}_{situacion}"
+    filepath = f"./point_clouds/{config}/RAFT_{mask}_disparity/{config}_{situacion}"
 
     # Visualización de la nube de puntos densa
     dense_pcd_file = f"{filepath}_dense.ply"
@@ -150,14 +206,14 @@ if __name__ == "__main__":
 
     
     # Visualización de la nube de puntos dispersa
-    sparse_pcd_file = f"{filepath}_person1_original.ply"
+    sparse_pcd_file = f"{filepath}_filtered_dense.ply"
     # centroid_file = f"{filepath}_person0_centroids.ply"
 
     # Imprimir coordenadas Z de los centroides
     # print_centroid_z_coordinates(centroid_file)
     
     # Visualizar la nube de puntos dispersa
-    visualize_dense_point_cloud(sparse_pcd_file)
+    visualize_sparse_point_cloud(sparse_pcd_file)
 
     
 

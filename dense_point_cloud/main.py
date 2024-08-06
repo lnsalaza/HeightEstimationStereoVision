@@ -9,8 +9,8 @@ import pc_generation_ML as pcGen_ML
 import matplotlib.pyplot as plt
 
 
-from bridge_selective import get_SELECTIVE_disparity_map
-from bridge_raft import get_RAFT_disparity_map
+from Selective_IGEV.bridge_selective import get_SELECTIVE_disparity_map
+from RAFTStereo.bridge_raft import get_RAFT_disparity_map
 # Definición de los videos y matrices de configuración
 configs = {
     'matlab_1': {
@@ -260,13 +260,13 @@ def graficar_alturas(alturas_estimadas, altura_minima, altura_maxima):
 data = []
 data_height = []
 camera_type = 'matlab_1'
-mask_type = 'roi'
+mask_type = 'keypoint'
 is_roi = (mask_type == "roi")
 situation = "450_600"
 model_path = configs[camera_type]['model']
 # Cargar el modelo de regresión lineal entrenado
 model = joblib.load(model_path)
-method_used = "RAFT" #OPTIONS: "SGBM". "RAFT", "SELECTIVE"
+method_used = "SGBM" #OPTIONS: "SGBM". "RAFT", "SELECTIVE"
 
 
 print(f"{method_used} ESTA SIENDO USADO")
@@ -509,11 +509,22 @@ for situation, variations in pairs.items():
                 point_cloud_list, colors_list, eps, min_samples = pcGen.generate_filtered_point_cloud(
                     img_left, disparity, Q, camera_type, use_roi=is_roi
                 )
+                # base_filename += "_filtered"
+                # point_cloud, colors, eps, min_samples = pcGen.generate_all_filtered_point_cloud(
+                #     img_left, disparity, Q, camera_type, use_roi=is_roi
+                # )
+
+                #pcGen.save_dense_point_cloud(point_cloud, colors, base_filename)
             else:
                 point_cloud_list, colors_list, eps, min_samples = pcGen_ML.generate_filtered_point_cloud(
                     img_left, disparity, fx, fy, cx1, cx2, cy, baseline, camera_type, use_roi=is_roi
                 )
+                # base_filename += "_filtered"
+                # point_cloud, colors, eps, min_samples = pcGen_ML.generate_all_filtered_point_cloud(
+                #     img_left, disparity, fx, fy, cx1, cx2, cy, baseline, camera_type, use_roi=is_roi
+                # )
 
+                #pcGen.save_dense_point_cloud(point_cloud, colors, base_filename)
 
             # point_cloud_list.extend(point_cloud_list_RAFT)
             # colors_list.extend(colors_list_RAFT)
@@ -550,14 +561,14 @@ for situation, variations in pairs.items():
                     "situation": situation + "_" + letter,
                     **{f"z_estimation_{i+1}": z for i, z in enumerate(z_estimations)}
                 })
-            # data_height.append(heights)
+            data_height.append(heights)
             
             
-            # heights_estimations = [height for height in heights] if heights is not None else []
-            # data.append({
-            #     "situation": situation + "_" + letter,
-            #     **{f"h_estimation_{i+1}": z for i, z in enumerate(heights_estimations)}
-            # })
+            heights_estimations = [height for height in heights] if heights is not None else []
+            data.append({
+                "situation": situation + "_" + letter,
+                **{f"h_estimation_{i+1}": z for i, z in enumerate(heights_estimations)}
+            })
           
     except Exception as e:
         print(f"Error procesando {situation}: {e}")    
@@ -587,7 +598,6 @@ if len(data) > 0:
         for row in data:
             writer.writerow(row)
     print(f"Dataset guardado en {dataset_path}")
-
 
 
 

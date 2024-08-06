@@ -7,8 +7,8 @@ import numpy as np
 import torch
 from tqdm import tqdm
 from pathlib import Path
-from Selective_IGEV.core.igev_stereo import IGEVStereo
-from Selective_IGEV.core.utils.utils import InputPadder
+from core.igev_stereo import IGEVStereo
+from core.utils.utils import InputPadder
 from PIL import Image
 from matplotlib import pyplot as plt
 import os
@@ -57,7 +57,7 @@ def demo(args):
             file_stem = imfile1.split('/')[-2]
             if args.save_numpy:
                 np.save(output_directory / f"{file_stem}.npy", disp)
-            plt.imsave(output_directory / f"{file_stem}.png", disp, cmap='jet')
+                plt.imsave(output_directory / f"{file_stem}.png", disp, cmap='jet')
 
     return disparity_maps
 
