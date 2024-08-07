@@ -3,3 +3,4 @@ kp_extraction/runs/
 *.pt
 *.ply
 *.pth
+__pycache__/

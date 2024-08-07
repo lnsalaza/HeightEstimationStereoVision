@@ -142,11 +142,11 @@ def get_centroid(point_cloud, eps, min_samples, base_filename, colors=None):
     if centroids is not None:
         centroid_colors = np.tile([[255, 0, 0]], (len(centroids), 1))
         centroid_filename = f"{base_filename}_centroids.ply"
-        save_point_cloud(centroids, centroid_colors, centroid_filename)
+       
     if colors is None:
         colors = np.ones_like(point_cloud) * [0, 0, 255]
     original_filename = f"{base_filename}_original.ply"
-    save_point_cloud(point_cloud, colors, original_filename)
+
 
     return centroids
 

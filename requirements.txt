@@ -3,10 +3,8 @@ opencv-contrib-python
 matplotlib
 open3d
 scikit-learn
-
 # KP extraction
-torch 
-torchvision 
-torchaudio
-# torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 (thisone is using cuda12.1 is for windows)
 ultralytics
+# ML models
+timm==0.5.4
+opt_einsum
