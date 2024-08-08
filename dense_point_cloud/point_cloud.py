@@ -5,15 +5,15 @@ import csv
 import string
 import joblib
 import numpy as np
-import pc_generation as pcGen
-import pc_generation_ML as pcGen_ML
+import dense_point_cloud.pc_generation as pcGen
+import dense_point_cloud.pc_generation_ML as pcGen_ML
 import matplotlib.pyplot as plt
 import open3d as o3d
 from scipy.spatial import KDTree
 from sklearn.cluster import DBSCAN
-from Selective_IGEV.bridge_selective import get_SELECTIVE_disparity_map
-from RAFTStereo.bridge_raft import get_RAFT_disparity_map
-
+from dense_point_cloud.Selective_IGEV.bridge_selective import get_SELECTIVE_disparity_map
+from dense_point_cloud.RAFTStereo.bridge_raft import get_RAFT_disparity_map
+from calibration.rectification import load_stereo_maps 
 fx1 = 1429.4995220185822
 fy1 = 1430.4111785502332
 
@@ -38,6 +38,32 @@ disparity_maps = get_RAFT_disparity_map(
         restore_ckpt="models/raftstereo-middlebury.pth",
     )
 """
+ # Asegúrate de tener esta función
+
+def rectify_images(img_left: np.array, img_right: np.array, config: str):
+    """
+    Rectifica un par de imágenes estéreo usando los mapas de rectificación correspondientes al perfil de calibración dado.
+
+    Args:
+        img_left (np.array): Imagen izquierda como array de numpy.
+        img_right (np.array): Imagen derecha como array de numpy.
+        profile_name (str): Nombre del perfil que contiene los mapas de rectificación.
+
+    Returns:
+        tuple: Tupla que contiene las imágenes izquierda y derecha rectificadas.
+    """
+    # Carga los mapas de rectificación desde el archivo XML asociado al perfil
+    map_path = f'config_files/{config}/stereo_map.xml'
+    if not os.path.exists(map_path):
+        raise FileNotFoundError("No se encontró el archivo de mapa de rectificación para el perfil especificado.")
+    
+    stereo_maps = load_stereo_maps(map_path)
+    
+    # Aplica los mapas de rectificación
+    img_left_rect = cv2.remap(img_left, stereo_maps['Left'][0], stereo_maps['Left'][1], cv2.INTER_LINEAR)
+    img_right_rect = cv2.remap(img_right, stereo_maps['Right'][0], stereo_maps['Right'][1], cv2.INTER_LINEAR)
+
+    return img_left_rect, img_right_rect
 
 def compute_disparity(img_left: np.array, img_right: np.array, config: dict, method: str):
     """
@@ -73,7 +99,7 @@ def compute_disparity(img_left: np.array, img_right: np.array, config: dict, met
             img_left_array=img_left,
             img_right_array=img_right,
             save_numpy=True,
-            slow_fast_gru=False,
+            slow_fast_gru=True,
         )
         disparity = disparity[0]
     else:
@@ -513,24 +539,24 @@ if __name__ == "__main__":
     # Asumiendo que queremos usar el método SGBM, ajusta si es RAFT o SELECTIVE según tu configuración
     method = 'SELECTIVE'
 
-    #TEST MAPA DISPARIDAD
-    #test_disparity_map(img_left, img_right, config, method)
+    # #TEST MAPA DISPARIDAD
+    # test_disparity_map(img_left, img_right, config, method)
 
-    #TEST NUBE DE PUNTOS DENSA
-    #test_point_cloud(img_left, img_right, config, method, use_max_disparity=False)
-
-
-    #TEST NUBE DE PUNTOS NO DENSA TOTAL
-    #test_filtered_point_cloud(img_left, img_right, config, method, use_roi=False, use_max_disparity=True)
+    # #TEST NUBE DE PUNTOS DENSA
+    # test_point_cloud(img_left, img_right, config, method, use_max_disparity=False)
 
 
-    #TEST CENTROIDE EN NUBE DE PUNTOS NO DENSA TOTAL
-    #test_filtered_point_cloud_with_centroids(img_left, img_right, config, method, use_roi=False, use_max_disparity=True)
+    # #TEST NUBE DE PUNTOS NO DENSA TOTAL
+    test_filtered_point_cloud(img_left, img_right, config, method, use_roi=False, use_max_disparity=True)
+
+    # #TEST CENTROIDE EN NUBE DE PUNTOS NO DENSA TOTAL
+    # test_filtered_point_cloud_with_centroids(img_left, img_right, config, method, use_roi=False, use_max_disparity=True)
 
 
-    #TEST NUBE DE PUNTOS NO DENSA INDIVIDUAL
-    test_individual_filtered_point_clouds(img_left, img_right, config, method, use_roi=False, use_max_disparity=True)
 
-    #TEST CENTROIDE EN NUBE DE PUNTOS NO DENSA INDIVIDUAL
-    #test_individual_filtered_point_cloud_with_centroid(img_left, img_right, config, method, use_roi=False, use_max_disparity=True)
+    # #TEST NUBE DE PUNTOS NO DENSA INDIVIDUAL
+    # test_individual_filtered_point_clouds(img_left, img_right, config, method, use_roi=False, use_max_disparity=True)
+
+    # #TEST CENTROIDE EN NUBE DE PUNTOS NO DENSA INDIVIDUAL
+    # test_individual_filtered_point_cloud_with_centroid(img_left, img_right, config, method, use_roi=False, use_max_disparity=True)
 

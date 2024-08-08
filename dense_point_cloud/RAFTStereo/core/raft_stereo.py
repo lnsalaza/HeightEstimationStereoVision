@@ -1,10 +1,10 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from RAFTStereo.core.update import BasicMultiUpdateBlock
-from RAFTStereo.core.extractor import BasicEncoder, MultiBasicEncoder, ResidualBlock
-from RAFTStereo.core.corr import CorrBlock1D, PytorchAlternateCorrBlock1D, CorrBlockFast1D, AlternateCorrBlock
-from RAFTStereo.core.utils.utils import coords_grid, upflow8
+from dense_point_cloud.RAFTStereo.core.update import BasicMultiUpdateBlock
+from dense_point_cloud.RAFTStereo.core.extractor import BasicEncoder, MultiBasicEncoder, ResidualBlock
+from dense_point_cloud.RAFTStereo.core.corr import CorrBlock1D, PytorchAlternateCorrBlock1D, CorrBlockFast1D, AlternateCorrBlock
+from dense_point_cloud.RAFTStereo.core.utils.utils import coords_grid, upflow8
 
 
 try:

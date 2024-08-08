@@ -4,8 +4,8 @@ from pathlib import Path
 import numpy as np
 import torch
 from tqdm import tqdm
-from Selective_IGEV.core.igev_stereo import IGEVStereo
-from Selective_IGEV.core.utils.utils import InputPadder
+from dense_point_cloud.Selective_IGEV.core.igev_stereo import IGEVStereo
+from dense_point_cloud.Selective_IGEV.core.utils.utils import InputPadder
 from matplotlib import pyplot as plt
 import os
 import torch.nn.functional as F

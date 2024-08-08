@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-from RAFTStereo.core.utils.utils import bilinear_sampler
+from dense_point_cloud.RAFTStereo.core.utils.utils import bilinear_sampler
 
 try:
     import corr_sampler

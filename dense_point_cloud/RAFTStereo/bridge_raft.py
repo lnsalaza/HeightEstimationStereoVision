@@ -3,8 +3,8 @@ from pathlib import Path
 import numpy as np
 import torch
 from tqdm import tqdm
-from RAFTStereo.core.raft_stereo import RAFTStereo
-from RAFTStereo.core.utils.utils import InputPadder
+from dense_point_cloud.RAFTStereo.core.raft_stereo import RAFTStereo
+from dense_point_cloud.RAFTStereo.core.utils.utils import InputPadder
 from matplotlib import pyplot as plt
 import os
 import torch.nn.functional as F

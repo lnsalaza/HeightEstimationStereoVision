@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-from Selective_IGEV.core.utils.utils import bilinear_sampler
+from dense_point_cloud.Selective_IGEV.core.utils.utils import bilinear_sampler
 
 
 class Combined_Geo_Encoding_Volume:

@@ -114,8 +114,39 @@ def calibrate_images(input_path, output_path, xml_file):
                 cv2.imwrite(save_path, rectified_image)
 
             
-            
-        
+def load_stereo_maps(xml_file: str):
+    """
+    Carga los mapas de rectificación estéreo desde un archivo XML.
+
+    Args:
+        xml_file (str): Ruta al archivo XML que contiene los mapas de rectificación.
+
+    Returns:
+        dict: Un diccionario con los mapas de rectificación para las imágenes izquierda y derecha.
+    """
+    cv_file = cv2.FileStorage(xml_file, cv2.FILE_STORAGE_READ)
+    stereoMapL_x = cv_file.getNode('stereoMapL_x').mat()
+    stereoMapL_y = cv_file.getNode('stereoMapL_y').mat()
+    stereoMapR_x = cv_file.getNode('stereoMapR_x').mat()
+    stereoMapR_y = cv_file.getNode('stereoMapR_y').mat()
+    cv_file.release()
+
+    return {
+        'Left': (stereoMapL_x, stereoMapL_y),
+        'Right': (stereoMapR_x, stereoMapR_y)
+    }           
+
+def rectify_images(img_left: np.array, img_right: np.array, profile_name: str):
+    map_path = f'config_files/{profile_name}/stereo_map.xml'
+    if not os.path.exists(map_path):
+        raise FileNotFoundError("No se encontró el archivo de mapa de rectificación para el perfil especificado.")
+    
+    stereo_maps = load_stereo_maps(map_path)
+    
+    img_left_rect = cv2.remap(img_left, stereo_maps['Left'][0], stereo_maps['Left'][1], cv2.INTER_LINEAR)
+    img_right_rect = cv2.remap(img_right, stereo_maps['Right'][0], stereo_maps['Right'][1], cv2.INTER_LINEAR)
+
+    return img_left_rect, img_right_rect        
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Calibrate video frames using stereo camera maps.")

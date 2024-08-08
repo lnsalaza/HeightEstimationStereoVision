@@ -4,7 +4,7 @@ import torch
 import numpy as np
 import open3d as o3d
 from sklearn.cluster import DBSCAN
-import keypoint_extraction as kp
+import dense_point_cloud.keypoint_extraction as kp
 
 
 

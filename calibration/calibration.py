@@ -67,6 +67,7 @@ def load_stereo_parameters(path):
         params['stereoT'] = np.array(params['stereoT'])
     return params
 
+
 def main():
     args = parse_args()
 

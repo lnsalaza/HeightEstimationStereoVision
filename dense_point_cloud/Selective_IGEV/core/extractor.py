@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from Selective_IGEV.core.submodule import *
+from dense_point_cloud.Selective_IGEV.core.submodule import *
 import timm
 
 

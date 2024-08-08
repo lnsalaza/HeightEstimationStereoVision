@@ -4,7 +4,7 @@ import torch
 import numpy as np
 import open3d as o3d
 from sklearn.cluster import DBSCAN
-import keypoint_extraction as kp
+import dense_point_cloud.keypoint_extraction as kp
 # Aplicar el filtro bilateral
 sigma = 1.5  # Parámetro de sigma utilizado para el filtrado WLS.
 lmbda = 8000.0  # Parámetro lambda usado en el filtrado WLS.
@@ -163,7 +163,7 @@ def generate_all_filtered_point_cloud(img_l, disparity, fx, fy, cx1, cx2, cy, ba
         min_samples = 6
 
     point_cloud, colors = disparity_to_pointcloud(disparity, fx, fy, cx1, cx2, cy, baseline, img_l, result_image, use_max_disparity=use_max_disparity)
-    return point_cloud, colors, eps, min_samples
+    return point_cloud, colors, eps, min_samples, 
 
 def generate_filtered_point_cloud(img_l, disparity, fx, fy, cx1, cx2, cy, baseline, camera_type, use_roi=True, use_max_disparity=True):
     result_image_list = []

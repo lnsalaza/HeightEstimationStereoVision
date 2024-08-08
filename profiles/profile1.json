@@ -30,23 +30,23 @@
         "mode": "StereoSGBM_MODE_HH",
         "wls_filter": true
       },
-      "correction_model": "./models/sgbm_correction_model.pkl"
+      "correction_model": "datasets/models/sgbm_correction_model.pkl"
     },
     "RAFT": {
       "enabled": true,
       "name": "RAFT",
       "params": {
-        "restore_ckpt": "RAFTStereo/models/raftstereo-middlebury.pth"
+        "restore_ckpt": "dense_point_cloud/RAFTStereo/models/raftstereo-middlebury.pth"
       },
-      "correction_model": "./models/raft_correction_model.pkl"
+      "correction_model": "datasets/models/raft_correction_model.pkl"
     },
     "SELECTIVE": {
       "enabled": true,
       "name": "Selective",
       "params": {
-        "restore_ckpt": "Selective_IGEV/pretrained_models/middlebury_train.pth"
+        "restore_ckpt": "dense_point_cloud/Selective_IGEV/pretrained_models/middlebury_train.pth"
       },
-      "correction_model": "./models/selective_correction_model.pkl"
+      "correction_model": "datasets/models/selective_correction_model.pkl"
     }
   },
   "output_directory": "./output",
