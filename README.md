@@ -1,7 +1,3 @@
-Aquí tienes el README actualizado, incluyendo las funciones de prueba como demos para mostrar el uso del sistema:
-
----
-
 # HeightEstimationStereoVision
 
 This project focuses on stereo vision to generate dense depth maps and segment people in images and videos. Using OpenCV, the project rectifies the input images or videos and generates a depth map. The result is a dense cloud of scenes. Various machine learning models, including RAFT-Stereo and Selective-IGEV, are now used to enhance disparity map generation.
