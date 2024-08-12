@@ -8,16 +8,13 @@ import utils
 
 # Constantes
 CONFIG = "matlab_1"
-METHOD_USED = "SELECTIVE" #OPTIONS: "SGBM". "RAFT", "SELECTIVE"
+METHOD_USED = "RAFT" #OPTIONS: "SGBM". "RAFT", "SELECTIVE"
 
+FILE_NAME = f"h_train_keypoint"
+FILE_NAME_VAL = f"h_validation_keypoint"
 
-FILE_NAME = f"z_estimation_chessboard_ground_truth_keypoint"
-FILE_NAME_VAL = f"z_estimation_validation_keypoint"
-
-# CONFIG = "matlab_1/ground_truth"
-# FILE_NAME = f"z_estimation_matlab_1_keypoint"
-# FILE_NAME_VAL = f"SGBM_z_estimation_validation_keypoint"
-
+MODEL = f'models/{CONFIG}/depth/{METHOD_USED}_flexometer.pkl'
+save = True
 # Funciones de utilidades
 def load_data(filepath):
     try:
@@ -32,15 +29,6 @@ def extract_z_true(situation):
         return int(situation.split("_")[0])
     except (IndexError, ValueError):
         raise ValueError(f"Invalid situation format: {situation}")
-
-def linea_regression(true_values, estimated_values):
-    try:
-        model = LinearRegression()
-        model.fit(np.array(estimated_values).reshape(-1,1), np.array(true_values).reshape(-1,1))
-        predicted_values = model.predict(np.array(estimated_values).reshape(-1,1))
-        return model, predicted_values
-    except Exception as e:
-        print(f"Error in linear regression: {e}")
 
 def apply_linear_regression(df, col_x, col_y):
     try:
@@ -111,8 +99,8 @@ def save_plot(df, original, path, y_lim=None):
 
 
 # Carga de datos
-df_training = load_data(f"data/{CONFIG}/{METHOD_USED}/{FILE_NAME}_train.csv")
-df_validation = load_data(f"data/{CONFIG}/{METHOD_USED}/{FILE_NAME_VAL}_validation.csv")
+df_training = load_data(f"data/{CONFIG}/{METHOD_USED}/{FILE_NAME}.csv")
+df_validation = load_data(f"data/{CONFIG}/{METHOD_USED}/{FILE_NAME_VAL}.csv")
 
 # Preprocesamiento
 df_processed = process_dataframe(df_training, 'z_estimation')
@@ -123,22 +111,25 @@ df_validation["z_true"] = df_validation["situation"].apply(extract_z_true)
 df_validation = df_validation.sort_values("z_true")
 
 # Entrenamiento y validación
-# lr_model = joblib.load('models/matlab_1/depth/z_LASER2.pkl')
+# lr_model = joblib.load(f'models/matlab_1/depth/{METHOD_USED}.pkl')
 lr_model = apply_linear_regression(df_processed, "z_estimation", "z_true")
-utils.save_model(lr_model, f'models/{CONFIG}/depth/{METHOD_USED}.pkl')
+if save:
+    utils.save_model(lr_model, MODEL)
 
 df_validation["z_corrected"] = lr_model.predict(df_validation[["z_estimation"]].values.reshape(-1, 1))
 df_validation, validation_error = utils.calculate_error(df_validation, "z_true", "z_corrected")
 
 # Guardar resultados
-df_validation.to_excel(f'data/matlab_1/tables/{FILE_NAME_VAL}.xlsx', index=False)
+filepath = f'data/matlab_1/tables/{METHOD_USED}/{FILE_NAME_VAL}.xlsx'
+utils.create_directory(filepath)
+df_validation.to_excel(filepath, index=False)
 print(df_validation)
-print(f"Validation error: {validation_error:.2f}%")
+print(f"Validation error: {validation_error*100:.2f}%")
 
 # Guardar gráficos
-save_plot(df_processed, True, f"graficas/{CONFIG}/{METHOD_USED}/training_{FILE_NAME}.png")
-save_plot(df_validation, True, f"graficas/{CONFIG}/{METHOD_USED}/original_{FILE_NAME}_val.png")
-save_plot(df_validation, False, f"graficas/{CONFIG}/{METHOD_USED}/corrected_{FILE_NAME}_val.png")
+# save_plot(df_processed, True, f"graficas/{CONFIG}/{METHOD_USED}/training_{FILE_NAME}.png")
+# save_plot(df_validation, True, f"graficas/{CONFIG}/{METHOD_USED}/original_{FILE_NAME}_val.png")
+# save_plot(df_validation, False, f"graficas/{CONFIG}/{METHOD_USED}/corrected_{FILE_NAME}_val.png")
 
 # ###########################################ORIGINAL#####################################
 

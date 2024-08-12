@@ -56,7 +56,7 @@ def compute_disparity(left_image, right_image, config):
     stereo = cv2.StereoSGBM_create(
         numDisparities = config['numDisparities'],
         blockSize = blockSize_var, 
-        minDisparity=config['blockSize'],
+        minDisparity=0,
         P1=P1,
         P2=P2,
         disp12MaxDiff=config['disp12MaxDiff'],

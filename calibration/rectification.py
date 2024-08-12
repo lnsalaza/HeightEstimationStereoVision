@@ -5,16 +5,16 @@ import numpy as np
 import argparse
 import sys
 
-INPUT_TYPE = "video"
+INPUT_TYPE = "image"
 LEFT_INPUT_VIDEO_PATH = "../videos/original/original_left.avi"
 RIGHT_INPUT_VIDEO_PATH = "../videos/original/original_right.avi"
 LEFT_OUTPUT_VIDEO_PATH = "../videos/rectified/left_rectified.avi"
 RIGHT_OUTPUT_VIDEO_PATH = "../videos/rectified/right_rectified.avi"
-DEFAULT_JSON = "../config_files/stereoParameters.json"
-DEFAULT_XML = "../config_files/newStereoMap.xml"
+DEFAULT_JSON = "../config_files/matlab_1/stereoParameters.json"
+DEFAULT_XML = "../config_files/matlab_1/newStereoMap.xml"
 
-GROUND_TRUTH_INPUT_IMAGES_PATH = '../images/laser/groundTruth'
-GROUND_TRUTH_OUTPUT_IMAGES_PATH = '../images/calibration_results/including_Y_rotation'
+GROUND_TRUTH_INPUT_IMAGES_PATH = '../images/originals/h_validation'
+GROUND_TRUTH_OUTPUT_IMAGES_PATH = '../images/calibration_results/matlab_1/h_validation'
 
 
 def get_stereo_map_parameter(file_name, parameter):

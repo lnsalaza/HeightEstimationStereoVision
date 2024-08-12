@@ -16,7 +16,7 @@ def save_model(model, filename):
 
 def calculate_error(df, col_true, col_pred):
     try:
-        df["error"] = ((abs(df[col_pred] - df[col_true])*100) / df[col_true])
+        df["error"] = ((abs(df[col_pred] - df[col_true])) / df[col_true])
         return df, np.mean(df["error"])
     except KeyError as e:
         print(f"Error: Missing column in DataFrame: {e}")

@@ -21,7 +21,7 @@ configs = {
         # 'RIGHT_VIDEO': '../videos/rectified/matlab_1/16_35_42_26_02_2024_VID_RIGHT.avi',
         'MATRIX_Q': '../config_files/matlab_1/newStereoMap.xml',
         'disparity_to_depth_map': 'disparity2depth_matrix',
-        'model': "../datasets/models/matlab_1/depth/SELECTIVE.pkl",
+        'model': "../datasets/models/matlab_1/depth/RAFT.pkl",
         'numDisparities': 68,
         'blockSize': 7, 
         'minDisparity': 5,
@@ -193,7 +193,8 @@ def get_Y_bounds(filtered_points):
 
     return y_min, y_max
 
-def read_image_pairs_by_distance(base_folder):
+def read_image_pairs_by_distance_original(base_folder):
+
     image_pairs_by_distance = {}
 
     # Recorre todas las subcarpetas en la carpeta base
@@ -226,6 +227,45 @@ def read_image_pairs_by_distance(base_folder):
                     else:
                         print(f"Error al leer las imágenes: {left_img_path} o {right_img_path}")
     
+    return image_pairs_by_distance
+
+def read_image_pairs_by_distance(base_folder):
+    image_pairs_by_distance = {}
+
+    # Recorre todas las subcarpetas en la carpeta base
+    for root, dirs, files in os.walk(base_folder):
+        # Identifica el nivel del subdirectorio
+        subdir_relative_path = os.path.relpath(root, base_folder)
+        subdir_parts = subdir_relative_path.split(os.sep)
+
+        # Maneja la estructura de carpetas anidada (h_train)
+        if len(subdir_parts) > 1:
+            distance = subdir_parts[0] + '_'+  subdir_parts[1]  # Ejemplo: '155'
+        else:
+            # Maneja la estructura de carpetas simple (ground_truth)
+            distance = subdir_parts[0]
+
+        if files:
+            if distance not in image_pairs_by_distance:
+                image_pairs_by_distance[distance] = []
+
+            # Filtra las imágenes LEFT y RIGHT
+            left_images = sorted([f for f in files if 'IMG_LEFT' in f])
+            right_images = sorted([f for f in files if 'IMG_RIGHT' in f])
+
+            # Empareja las imágenes por su timestamp
+            for left_img in left_images:
+                timestamp = left_img.split('_IMG_LEFT')[0]
+                corresponding_right_img = timestamp + '_IMG_RIGHT.jpg'
+                if corresponding_right_img in right_images:
+                    left_img_path = os.path.join(root, left_img)
+                    right_img_path = os.path.join(root, corresponding_right_img)
+
+                    if left_img_path is not None and right_img_path is not None:
+                        image_pairs_by_distance[distance].append((left_img_path, right_img_path))
+                    else:
+                        print(f"Error al leer las imágenes: {left_img_path} o {right_img_path}")
+
     return image_pairs_by_distance
 
 def graficar_alturas(alturas_estimadas, altura_minima, altura_maxima):
@@ -280,14 +320,14 @@ def get_adjusted_situation(situation, data):
 data = []
 data_height = []
 camera_type = 'matlab_1'
-mask_type = 'keypoint'
+mask_type = 'keypoint' 
 is_roi = (mask_type == "roi")
 situation = "450_600"
 model_path = configs[camera_type]['model']
 alphabet = string.ascii_lowercase
 # Cargar el modelo de regresión lineal entrenado
 model = joblib.load(model_path)
-method_used = "SELECTIVE" #OPTIONS: "SGBM". "RAFT", "SELECTIVE"
+method_used = "RAFT" #OPTIONS: "SGBM". "RAFT", "SELECTIVE"
 
 
 print(f"{method_used} ESTA SIENDO USADO")
@@ -453,7 +493,8 @@ apply_correction = False
 
 
 ################################################################################################################################
-pairs = read_image_pairs_by_distance('../images/calibration_results/matlab_1/heights')
+images_folder = 'h_validation' #OPCIONES 'chessboard' 'flexometer' 'ground_truth' 'heights' 'validation' 'h_train' 'h_validation'
+pairs = read_image_pairs_by_distance(f'../images/calibration_results/matlab_1/{images_folder}')
 alphabet = string.ascii_lowercase
 alturas = []
 
@@ -614,7 +655,8 @@ if len(data) > 0:
     # Guardar dataset como CSV
     # dataset_path = f"../datasets/data/{camera_type}/z_estimation_{camera_type}_{mask_type}_h_validation-LASER2_model-.csv"
     # dataset_path = f"../datasets/data/{camera_type}/validation-z_corrected-LASER2_model-.csv"
-    dataset_path = f"../datasets/data/{camera_type}/{method_used}/z_estimation_heights_{mask_type}_validation.csv"
+    corrected = 'corrected_' if apply_correction else ''
+    dataset_path = f"../datasets/data/{camera_type}/{method_used}/{corrected}{images_folder}_{mask_type}.csv"
 
     if not os.path.exists(os.path.dirname(dataset_path)):
         os.makedirs(os.path.dirname(dataset_path))
