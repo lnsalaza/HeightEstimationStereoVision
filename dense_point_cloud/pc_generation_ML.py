@@ -55,36 +55,39 @@ def compute_disparity(left_image, right_image, config):
     filtered_disp = wls_filter.filter(left_disp, left_image, disparity_map_right=right_disp)
     return filtered_disp
 
-def disparity_to_pointcloud(disparity, fx, fy, cx1, cx2, cy, baseline, image, custom_mask=None, use_max_disparity = True):
+def disparity_to_pointcloud(disparity, fx, fy, cx1, cx2, cy, baseline, image, custom_mask=None, use_max_disparity=True, keypoints=None):
+    disparity = disparity.astype(np.float64)
+    fx = float(fx)
+    fy = float(fy)
+    cx1 = float(cx1)
+    cx2 = float(cx2)
+    cy = float(cy)
+    baseline = float(baseline)
+
     depth = (fx * baseline) / (disparity + (cx2 - cx1))
     H, W = depth.shape
-    xx, yy = np.meshgrid(np.arange(W), np.arange(H), indexing='xy')
+    xx, yy = np.meshgrid(np.arange(W, dtype=np.float64), np.arange(H, dtype=np.float64), indexing='xy')
 
-    points_grid = np.stack(((xx - cx1) / fx, (yy - cy) / fy, np.ones_like(xx)), axis=-1) * depth[:, :, np.newaxis]
+    points_grid = np.stack(((xx - cx1) / fx, (yy - cy) / fy, np.ones_like(xx, dtype=np.float64)), axis=-1) * depth[:, :, np.newaxis]
 
     mask = np.ones((H, W), dtype=bool)
 
-    
-    # Obtener la disparidad máxima
-    
-    # Ajustar el umbral de filtrado en función de la disparidad máxima
     if not use_max_disparity:
-        max_disparity_threshold = np.max(disparity)
+        max_disparity_threshold = np.max(disparity) / 1000
         mask[1:][np.abs(depth[1:] - depth[:-1]) > max_disparity_threshold] = False
-        mask[:,1:][np.abs(depth[:,1:] - depth[:,:-1]) > max_disparity_threshold] = False
+        mask[:, 1:][np.abs(depth[:, 1:] - depth[:, :-1]) > max_disparity_threshold] = False
     else:
         mask[1:][np.abs(depth[1:] - depth[:-1]) > 1] = True
-        mask[:,1:][np.abs(depth[:,1:] - depth[:,:-1]) > 1] = True
-
-    
+        mask[:, 1:][np.abs(depth[:, 1:] - depth[:, :-1]) > 1] = True
 
     if custom_mask is not None:
         mask &= custom_mask > 0
 
     out_points = points_grid[mask].astype(np.float64)
     out_colors = image[mask].astype(np.float64)
-    
     return out_points, out_colors
+
+
 
 def apply_dbscan(point_cloud, eps, min_samples):
     db = DBSCAN(eps=eps, min_samples=min_samples).fit(point_cloud)
@@ -151,7 +154,36 @@ def get_centroid(point_cloud, eps, min_samples, base_filename, colors=None):
     return centroids
 
 
+def get_strutured_kepoints3d(keypoints, disparity, fx, fy, cx1, cx2, cy, baseline):
+    # Asegurar que todos los cálculos se realicen en float64
+    disparity = disparity.astype(np.float64)
+    fx = float(fx)
+    fy = float(fy)
+    cx1 = float(cx1)
+    cx2 = float(cx2)
+    cy = float(cy)
+    baseline = float(baseline)
+
+    depth = (fx * baseline) / (disparity + (cx2 - cx1))
+    H, W = depth.shape
+    xx, yy = np.meshgrid(np.arange(W, dtype=np.float64), np.arange(H, dtype=np.float64), indexing='xy')
+
+    points_grid = np.stack(((xx - cx1) / fx, (yy - cy) / fy, np.ones_like(xx, dtype=np.float64)), axis=-1) * depth[:, :, np.newaxis]
+
+    estructura_con_coordenadas_3d = []
+    
+    for persona in keypoints:
+        nueva_persona = []
+        for punto in persona:
+            x, y = punto
+            coordenadas_3d = points_grid[int(y), int(x)]
+            nueva_persona.append(coordenadas_3d)
+        estructura_con_coordenadas_3d.append(np.array(nueva_persona, dtype=np.float64))
+    
+    return estructura_con_coordenadas_3d
+
 def generate_all_filtered_point_cloud(img_l, disparity, fx, fy, cx1, cx2, cy, baseline, camera_type, use_roi=True, use_max_disparity=True):
+    keypoints = []
     if use_roi:
         seg = kp.get_segmentation(img_l)
         result_image = kp.apply_seg_mask(disparity, seg)
@@ -162,14 +194,15 @@ def generate_all_filtered_point_cloud(img_l, disparity, fx, fy, cx1, cx2, cy, ba
         eps = 50 if "matlab" in camera_type else 10
         min_samples = 6
 
-    point_cloud, colors = disparity_to_pointcloud(disparity, fx, fy, cx1, cx2, cy, baseline, img_l, result_image, use_max_disparity=use_max_disparity)
-    return point_cloud, colors, eps, min_samples, 
+    point_cloud, colors = disparity_to_pointcloud(disparity, fx, fy, cx1, cx2, cy, baseline, img_l, result_image, use_max_disparity=use_max_disparity, keypoints=keypoints)
+    
+    return point_cloud, colors, eps, min_samples
 
 def generate_filtered_point_cloud(img_l, disparity, fx, fy, cx1, cx2, cy, baseline, camera_type, use_roi=True, use_max_disparity=True):
     result_image_list = []
     point_cloud_list = []
     colors_list = []
-
+    keypoints3d = []
     if use_roi:
         seg = kp.get_segmentation(img_l)
         for i in seg:
@@ -185,13 +218,13 @@ def generate_filtered_point_cloud(img_l, disparity, fx, fy, cx1, cx2, cy, baseli
             result_image_list.append(result_image)
         eps = 300 if "matlab" in camera_type else 10
         min_samples = 6
-        
+        keypoints3d = get_strutured_kepoints3d(keypoints, disparity, fx, fy, cx1, cx2, cy, baseline)
     for mask in result_image_list:
         point_cloud, colors = disparity_to_pointcloud(disparity, fx, fy, cx1, cx2, cy, baseline, img_l, mask, use_max_disparity=use_max_disparity)
         point_cloud_list.append(point_cloud)
         colors_list.append(colors)
     
-    return point_cloud_list, colors_list, eps, min_samples
+    return point_cloud_list, colors_list, eps, min_samples, keypoints3d
 
 def roi_no_dense_pc(img_l, disparity, fx, fy, cx1, cx2, cy, baseline):
     segmentation = kp.get_segmentation(img_l)

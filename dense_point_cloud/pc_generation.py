@@ -105,22 +105,23 @@ def compute_disparity(left_image, right_image, config):
 
 # REPROYECCIÒN DE DISPARIDAD A 3D
 
-def disparity_to_pointcloud(disparity, Q, image, custom_mask=None, use_max_disparity = True):
-    points_3D = cv2.reprojectImageTo3D(disparity, Q)
-    mask = np.ones(disparity.shape, dtype=bool) 
+def disparity_to_pointcloud(disparity, Q, image, custom_mask=None, use_max_disparity=True):
+
+    points_3D = cv2.reprojectImageTo3D(disparity, Q).astype(np.float64)
+    
+    mask = np.ones(disparity.shape, dtype=bool)
     
     mask = disparity > 0
     if not use_max_disparity:
-        
-        max_disparity_threshold = np.max(disparity) / 2000
+        max_disparity_threshold = np.max(disparity) / 2500
         mask[1:][np.abs(points_3D[1:] - points_3D[:-1])[:, :, 2] > max_disparity_threshold] = False
         mask[:, 1:][np.abs(points_3D[:, 1:] - points_3D[:, :-1])[:, :, 2] > max_disparity_threshold] = False
 
     if custom_mask is not None:
-        mask  &= custom_mask > 0
-
-    out_points = points_3D[mask]
-    out_colors = image[mask]
+        mask &= custom_mask > 0
+    
+    out_points = points_3D[mask].astype(np.float64)
+    out_colors = image[mask].astype(np.float64)
 
     return out_points, out_colors
 
@@ -176,8 +177,25 @@ def process_point_cloud(point_cloud, eps, min_samples, base_filename):
 
     return centroids
 
-def generate_all_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True, use_max_disparity=True):
+
+def get_strutured_kepoints3d(keypoints, disparity, Q):
+
+    points_3D = cv2.reprojectImageTo3D(disparity, Q).astype(np.float64)
+
+    estructura_con_coordenadas_3d = []
     
+    for persona in keypoints:
+        nueva_persona = []
+        for punto in persona:
+            x, y = punto
+            coordenadas_3d = points_3D[int(y), int(x)]
+            nueva_persona.append(coordenadas_3d)
+        estructura_con_coordenadas_3d.append(np.array(nueva_persona, dtype=np.float64))
+    
+    return estructura_con_coordenadas_3d
+
+def generate_all_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True, use_max_disparity=True):
+    keypoints = []
     if use_roi:
         seg = kp.get_segmentation(img_l)
         result_image = kp.apply_seg_mask(disparity, seg)
@@ -197,6 +215,7 @@ def generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True
     result_image_list = []
     point_cloud_list = []
     colors_list = []
+    keypoints3d = []
     if use_roi:
         seg = kp.get_segmentation(img_l)
         for i in seg:
@@ -212,7 +231,8 @@ def generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True
             i_list = [i]
             result_image = kp.apply_keypoints_mask(disparity, i_list)
             result_image_list.append(result_image)
-           
+        keypoints3d = get_strutured_kepoints3d(keypoints,disparity, Q)
+   
         
         #save_image("../images/prediction_results/", result_image, "filtered_keypoints", False)
 
@@ -224,7 +244,7 @@ def generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True
         point_cloud = point_cloud.astype(np.float64)
         point_cloud_list.append(point_cloud), colors_list.append(colors)
     
-    return point_cloud_list, colors_list, eps, min_samples
+    return point_cloud_list, colors_list, eps, min_samples, keypoints3d
 
 def roi_no_dense_pc(img_l, disparity, Q):
     segmentation = kp.get_segmentation(img_l)

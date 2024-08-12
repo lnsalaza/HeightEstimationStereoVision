@@ -347,7 +347,7 @@ def process_point_cloud(point_cloud, eps, min_samples, base_filename):
     return centroids
 
 def generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True, ):
-    
+    keypoints = []
     if use_roi:
         roi = kp.get_roi(img_l)
         result_image = kp.apply_roi_mask(disparity, roi)

@@ -18,7 +18,7 @@ app = FastAPI(title="Stereo Calibration API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Los orígenes que deseas permitir (puedes usar ["*"] para todos)
+    allow_origins=["*"],  # Los orígenes que se desea permitir (Usar ["*"] para todos)
     allow_credentials=True,
     allow_methods=["*"],  # Métodos permitidos
     allow_headers=["*"],  # Cabeceras permitidas
@@ -92,7 +92,7 @@ def get_profiles():
         HTTPException: Si no se encuentran perfiles o si ocurre un error durante la operación de búsqueda.
     """
     try:
-        profiles = list_profiles("profiles")  # Asegúrate de que la carpeta 'profiles' exista o maneja la excepción
+        profiles = list_profiles("profiles") 
         if not profiles:
             raise HTTPException(status_code=404, detail="No profiles found")
         return profiles
@@ -118,24 +118,139 @@ def delete_profile_endpoint(profile_name: str):
 
 
 @app.post("/generate_point_cloud/dense/")
-async def generate_dense_point_cloud(
+async def dense_point_cloud(
     img_left: UploadFile = File(...),
     img_right: UploadFile = File(...),
     profile_name: str = Form(...),
-    method: str = Form(...)
+    method: str = Form(...),
+    use_max_disparity: bool = False,
+    normalize: bool = True  
 ):
     """
     Recibe dos imágenes estéreo, las rectifica utilizando el perfil de calibración especificado,
-    y luego genera una nube de puntos 3D densa.
+    y luego genera una nube de puntos 3D densa utilizando el método de disparidad seleccionado.
+    Opcionalmente, la nube de puntos puede ser normalizada a una escala de unidad estándar.
 
     Args:
         img_left (UploadFile): Imagen del lado izquierdo como archivo subido.
         img_right (UploadFile): Imagen del lado derecho como archivo subido.
         profile_name (str): Nombre del perfil de calibración a utilizar.
         method (str): Método de disparidad a utilizar ('SGBM', 'RAFT', 'SELECTIVE').
+        use_max_disparity (bool): Indica si se activa o desactiva un filtrado de puntos flotantes.
+        normalize (bool): Indica si se debe normalizar la nube de puntos a una escala de unidad estándar.
 
     Returns:
-        dict: Contiene la nube de puntos y los colores correspondientes, junto con el perfil y método usados.
+        dict: Contiene la nube de puntos y los colores correspondientes, junto con el perfil y método usados, además del estado de la normalización.
+
+    Raises:
+        HTTPException: Si no se puede procesar la solicitud debido a errores en la carga de perfiles, en la rectificación de imágenes o en la generación de la nube de puntos.
+    """
+    try:
+        left_image = await read_image_from_upload(img_left)
+        right_image = await read_image_from_upload(img_right)
+
+        # Cargar la configuración del perfil y rectificar las imágenes
+        profile = load_profile(profile_name)
+        if not profile:
+            raise HTTPException(status_code=404, detail=f"Perfil {profile_name} no encontrado.")
+
+        left_image_rect, right_image_rect = rectify_images(left_image, right_image, profile_name)
+
+        # Generar nube de puntos
+        point_cloud, colors = generate_dense_point_cloud(left_image_rect, right_image_rect, profile, method, use_max_disparity=use_max_disparity, normalize=normalize)
+        return {
+            "point_cloud": point_cloud.tolist(),
+            "colors": colors.tolist(),
+            "profile_used": profile_name,
+            "method_used": method,
+            "normalized": normalize
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/generate_point_cloud/nodense/complete/")
+async def complete_no_dense_point_cloud(
+    img_left: UploadFile = File(...),
+    img_right: UploadFile = File(...),
+    profile_name: str = Form(...),
+    method: str = Form(...),
+    use_roi: bool = True,
+    use_max_disparity: bool = True,
+    normalize: bool = True  
+):
+    """
+    Recibe dos imágenes estéreo, las rectifica utilizando el perfil de calibración especificado,
+    y luego genera una nube de puntos 3D filtrada y combinada utilizando el método de disparidad seleccionado.
+    Opcionalmente, la nube de puntos puede ser normalizada a una escala de unidad estándar.
+
+    Args:
+        img_left (UploadFile): Imagen del lado izquierdo como archivo subido.
+        img_right (UploadFile): Imagen del lado derecho como archivo subido.
+        profile_name (str): Nombre del perfil de calibración a utilizar.
+        method (str): Método de disparidad a utilizar ('SGBM', 'RAFT', 'SELECTIVE').
+        use_roi (bool): Indica si aplicar una región de interés (ROI) durante el procesamiento.
+        use_max_disparity (bool): Indica si se activa o desactiva un filtrado de puntos flotantes.
+        normalize (bool): Indica si se debe normalizar la nube de puntos a una escala de unidad estándar.
+
+    Returns:
+        dict: Contiene la nube de puntos filtrada y los colores correspondientes, junto con el perfil y método usados, además del estado de la normalización.
+
+    Raises:
+        HTTPException: Si no se puede procesar la solicitud debido a errores en la carga de perfiles, en la rectificación de imágenes o en la generación de la nube de puntos.
+    """
+    try:
+        left_image = await read_image_from_upload(img_left)
+        right_image = await read_image_from_upload(img_right)
+
+        # Cargar la configuración del perfil y rectificar las imágenes
+        profile = load_profile(profile_name)
+        if not profile:
+            raise HTTPException(status_code=404, detail=f"Perfil {profile_name} no encontrado.")
+
+        left_image_rect, right_image_rect = rectify_images(left_image, right_image, profile_name)
+
+        # Generar nube de puntos
+        point_cloud, colors = generate_combined_filtered_point_cloud(left_image_rect, right_image_rect, profile, method, use_roi, use_max_disparity, normalize=normalize)
+        return {
+            "point_cloud": point_cloud.tolist(),
+            "colors": colors.tolist(),
+            "profile_used": profile_name,
+            "method_used": method,
+            "roi_used": use_roi,
+            "normalized": normalize
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    
+
+@app.post("/generate_point_cloud/nodense/individual/")
+async def individual_no_dense_point_cloud(
+    img_left: UploadFile = File(...),
+    img_right: UploadFile = File(...),
+    profile_name: str = Form(...),
+    method: str = Form(...),
+    use_roi: bool = Form(default=False),
+    use_max_disparity: bool = Form(default=True),
+    normalize: bool = Form(default=False)  # Nuevo parámetro para controlar la normalización
+):
+    """
+    Recibe dos imágenes estéreo, las rectifica utilizando el perfil de calibración especificado,
+    y luego genera listas separadas de nubes de puntos 3D y colores para cada objeto detectado individualmente,
+    utilizando el método de disparidad seleccionado. Opcionalmente, las nubes de puntos pueden ser normalizadas.
+
+    Args:
+        img_left (UploadFile): Imagen del lado izquierdo como archivo subido.
+        img_right (UploadFile): Imagen del lado derecho como archivo subido.
+        profile_name (str): Nombre del perfil de calibración a utilizar.
+        method (str): Método de disparidad a utilizar ('SGBM', 'RAFT', 'SELECTIVE').
+        use_roi (bool): Indica si aplicar una Región de Interés (ROI) durante el procesamiento.
+        use_max_disparity (bool): Indica si utilizar la disparidad máxima para optimizar la nube de puntos.
+        normalize (bool): Indica si se debe normalizar la nube de puntos a una escala de unidad estándar.
+
+    Returns:
+        dict: Contiene listas de nubes de puntos y colores, cada una correspondiente a un objeto detectado individualmente, junto con el perfil y método usados, además del estado de la normalización.
 
     Raises:
         HTTPException: Si no se puede procesar la solicitud.
@@ -151,14 +266,21 @@ async def generate_dense_point_cloud(
 
         left_image_rect, right_image_rect = rectify_images(left_image, right_image, profile_name)
 
-        # Generar nube de puntos
-        point_cloud, colors = generate_dense_point_cloud(left_image_rect, right_image_rect, profile, method, use_max_disparity=True)
+        # Generar listas de nubes de puntos para cada objeto detectado
+        point_clouds_list, colors_list, keypoints3d = generate_individual_filtered_point_clouds(
+            left_image_rect, right_image_rect, profile, method, use_roi, use_max_disparity
+        )
+        if normalize:
+            point_clouds_list = [process_numpy_point_cloud(pc) for pc in point_clouds_list]
+
         return {
-            "point_cloud": point_cloud.tolist(),
-            "colors": colors.tolist(),
+            "point_clouds": [pc.tolist() for pc in point_clouds_list],
+            "colors": [colors.tolist() for colors in colors_list],
+            "keypoints_3d": keypoints3d,
             "profile_used": profile_name,
-            "method_used": method
+            "method_used": method,
+            "roi_used": use_roi,
+            "normalized": normalize
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
