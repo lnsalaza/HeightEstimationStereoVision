@@ -7,6 +7,27 @@ from pathlib import Path
 import shutil
 import zipfile
 
+def filter_points_by_optimal_range(point_cloud, centroid, m_initial=30):
+    z_centroid = centroid[2]
+    m = m_initial  # Puedes ajustar esto si necesitas una relación más compleja
+    lower_bound = z_centroid - m
+    upper_bound = z_centroid + m
+
+    # Crear una máscara lógica para filtrar los puntos en el rango óptimo
+    mask = (point_cloud[:, 2] >= lower_bound) & (point_cloud[:, 2] <= upper_bound)
+    filtered_points = point_cloud[mask]
+
+    return filtered_points
+
+def get_Y_bounds(filtered_points):
+    if filtered_points.size == 0:
+        return None, None
+
+    y_min = np.min(filtered_points[:, 1])
+    y_max = np.max(filtered_points[:, 1])
+
+    return y_min, y_max
+
 def create_point_cloud(points, colors=None):
     """
     Crea un objeto PointCloud de Open3D a partir de arrays numpy de puntos y colores.

@@ -1,17 +1,23 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form
-from fastapi.middleware.cors import CORSMiddleware
 import os
 import json
+
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, JSONResponse
+
 from api_util.profile_management import *
 from api_util.image_utils import *
-from calibration.calibration import load_stereo_parameters, stereo_rectify, create_rectify_map, save_stereo_maps
+from calibration.calibration import (
+    load_stereo_parameters, 
+    stereo_rectify, 
+    create_rectify_map, 
+    save_stereo_maps
+)
 from dense_point_cloud.point_cloud import *
-import uvicorn
-from fastapi import APIRouter
-from typing import List, Dict
-
-
-
+from dense_point_cloud.util import (
+    convert_point_cloud_format, 
+    convert_individual_point_clouds_format
+)
 
 app = FastAPI(title="Stereo Calibration API")
 
@@ -231,9 +237,9 @@ async def individual_no_dense_point_cloud(
     img_right: UploadFile = File(...),
     profile_name: str = Form(...),
     method: str = Form(...),
-    use_roi: bool = Form(default=False),
-    use_max_disparity: bool = Form(default=True),
-    normalize: bool = Form(default=False)  # Nuevo parámetro para controlar la normalización
+    use_roi: bool = True,
+    use_max_disparity: bool = True,
+    normalize: bool = True    # Nuevo parámetro para controlar la normalización
 ):
     """
     Recibe dos imágenes estéreo, las rectifica utilizando el perfil de calibración especificado,
@@ -284,3 +290,150 @@ async def individual_no_dense_point_cloud(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate_point_cloud/nodense/height_estimation/")
+async def estimate_height_from_cloud(
+    img_left: UploadFile = File(...),
+    img_right: UploadFile = File(...),
+    profile_name: str = Form(...),
+    method: str = Form(...),
+    use_max_disparity: bool = True,
+    normalize: bool = True,  # Parámetro para controlar la normalización
+    k: int = Form(5),
+    threshold_factor: float = Form(1.0),
+    m_initial: float = Form(50.0)
+):
+    """
+    Genera nubes de puntos individuales para cada persona detectada en las imágenes estéreo
+    y estima la altura de cada persona desde la nube de puntos correspondiente.
+
+    Args:
+        img_left (UploadFile): Imagen del lado izquierdo como archivo subido.
+        img_right (UploadFile): Imagen del lado derecho como archivo subido.
+        profile_name (str): Nombre del perfil de calibración a utilizar.
+        method (str): Método de disparidad a utilizar ('SGBM', 'RAFT', 'SELECTIVE').
+        use_max_disparity (bool): Indica si se activa o desactiva un filtrado de puntos flotantes.
+        normalize (bool): Indica si se normaliza la nube de puntos a una escala de unidad estándar.
+        k (int): Número de vecinos más cercanos para calcular el centroide.
+        threshold_factor (float): Factor de umbral para eliminar el ruido en el cálculo del centroide.
+        m_initial (float): Rango inicial para filtrar los puntos alrededor del centroide.
+
+    Returns:
+        JSONResponse: Contiene la altura estimada y el centroide calculado para cada persona.
+    """
+    try:
+        # Forzar use_roi a False para que el proceso se limite a personas individuales
+        use_roi = False
+
+        # Leer las imágenes subidas
+        left_image = await read_image_from_upload(img_left)
+        right_image = await read_image_from_upload(img_right)
+
+        # Cargar la configuración del perfil y rectificar las imágenes
+        profile = load_profile(profile_name)
+        if not profile:
+            raise HTTPException(status_code=404, detail=f"Perfil {profile_name} no encontrado.")
+
+        left_image_rect, right_image_rect = rectify_images(left_image, right_image, profile_name)
+
+        # Generar nubes de puntos individuales
+        point_clouds_list, colors_list, keypoints3d_list = generate_individual_filtered_point_clouds(
+            left_image_rect, right_image_rect, profile, method, use_roi, use_max_disparity, normalize
+        )
+
+        # Se asume que hay al menos una nube de puntos de la cual estimar la altura
+        if not point_clouds_list:
+            raise HTTPException(status_code=404, detail="No se encontraron nubes de puntos individuales.")
+
+        # Procesar la altura de todas las personas detectadas
+        results = {}
+        for idx, point_cloud in enumerate(point_clouds_list):
+            height, centroid = estimate_height_from_point_cloud(
+                point_cloud, k=k, threshold_factor=threshold_factor, m_initial=m_initial
+            )
+            if height is not None:
+                results[f"person_{idx + 1}"] = {
+                    "height": height,
+                    "centroid": centroid.tolist()
+                }
+            else:
+                results[f"person_{idx + 1}"] = {
+                    "message": "No se pudo estimar la altura para esta persona.",
+                    "centroid": centroid.tolist()
+                }
+
+        # Agregar información sobre el perfil y el método utilizado
+        results["profile_used"] = profile_name
+        results["method_used"] = method
+
+        return JSONResponse(content=results)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al procesar la nube de puntos: {str(e)}")
+
+@app.post("/download_point_cloud/dense/")
+async def download_converted_point_cloud(format: str):
+    """
+    Convierte el archivo temporal de la nube de puntos densa al formato solicitado y lo envía como descarga.
+
+    Args:
+        format (str): Formato deseado para la conversión ('ply', 'xyz', 'pcd', 'pts', 'xyzrgb').
+
+    Returns:
+        FileResponse: Archivo convertido para descargar o mensaje de error si algo falla.
+    """
+    try:
+        # Realizar la conversión del archivo temporal al formato solicitado
+        success, converted_file_path = convert_point_cloud_format(output_format=format)
+        
+        if not success:
+            raise HTTPException(status_code=500, detail=converted_file_path)
+
+        # Verificar que el archivo convertido existe
+        if not os.path.exists(converted_file_path):
+            raise HTTPException(status_code=404, detail="El archivo convertido no se encontró.")
+
+        # Devolver el archivo convertido como una descarga
+        return FileResponse(
+            path=converted_file_path,
+            filename=os.path.basename(converted_file_path),
+            media_type='application/octet-stream'
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al procesar la descarga: {str(e)}")
+    
+
+
+@app.post("/download_point_cloud/nodense/")
+async def download_individual_converted_point_clouds(format: str):
+    """
+    Convierte las nubes de puntos individuales a un formato especificado, las comprime junto con los keypoints en un archivo ZIP,
+    y lo envía como descarga.
+
+    Args:
+        format (str): Formato deseado para la conversión ('ply', 'xyz', 'pcd', 'pts', 'xyzrgb').
+
+    Returns:
+        FileResponse: Archivo ZIP convertido para descargar o mensaje de error si algo falla.
+    """
+    try:
+        # Realizar la conversión y compresión de los archivos temporales al formato solicitado
+        success, zip_file_path = convert_individual_point_clouds_format(output_format=format)
+        
+        if not success:
+            raise HTTPException(status_code=500, detail=zip_file_path)
+
+        # Verificar que el archivo ZIP convertido existe
+        if not os.path.exists(zip_file_path):
+            raise HTTPException(status_code=404, detail="El archivo ZIP convertido no se encontró.")
+
+        # Devolver el archivo ZIP convertido como una descarga
+        return FileResponse(
+            path=zip_file_path,
+            filename=os.path.basename(zip_file_path),
+            media_type='application/zip'
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al procesar la descarga: {str(e)}")

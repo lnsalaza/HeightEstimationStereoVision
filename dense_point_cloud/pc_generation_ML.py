@@ -25,35 +25,7 @@ def save_image(path, image, image_name, grayscale=False):
     cv2.imwrite(full_path, image)
 
 # --------------------------------------------------- DENSE POINT CLOUD ----------------------------------------------------------
-def compute_disparity(left_image, right_image, config):
-    left_image = cv2.cvtColor(left_image, cv2.COLOR_BGR2GRAY)
-    right_image = cv2.cvtColor(right_image, cv2.COLOR_BGR2GRAY)
 
-    blockSize_var = config['blockSize']
-    P1 = 8 * 3 * (blockSize_var ** 2)  
-    P2 = 32 * 3 * (blockSize_var ** 2) 
-
-    stereo = cv2.StereoSGBM_create(
-        numDisparities = config['numDisparities'],
-        blockSize = blockSize_var, 
-        minDisparity=config['blockSize'],
-        P1=P1,
-        P2=P2,
-        disp12MaxDiff=config['disp12MaxDiff'],
-        uniquenessRatio=config['uniquenessRatio'],
-        preFilterCap=config['preFilterCap'],
-        mode=config['mode']
-    )
-
-    left_disp = stereo.compute(left_image, right_image)
-    right_matcher = cv2.ximgproc.createRightMatcher(stereo)
-    right_disp = right_matcher.compute(right_image, left_image)
-
-    wls_filter = cv2.ximgproc.createDisparityWLSFilter(matcher_left=stereo)
-    wls_filter.setLambda(lmbda)
-    wls_filter.setSigmaColor(sigma)
-    filtered_disp = wls_filter.filter(left_disp, left_image, disparity_map_right=right_disp)
-    return filtered_disp
 
 def disparity_to_pointcloud(disparity, fx, fy, cx1, cx2, cy, baseline, image, custom_mask=None, use_max_disparity=True, keypoints=None):
     disparity = disparity.astype(np.float64)
@@ -238,21 +210,6 @@ def roi_no_dense_pc(img_l, disparity, fx, fy, cx1, cx2, cy, baseline):
 
     return point_clouds, pc_colors
 
-def roi_source_point_cloud(img_l, img_r, fx, fy, cx1, cx2, cy, baseline, config):
-    eps, min_samples = 5, 1800
-
-    roi_left = kp.get_roi(img_l)
-    roi_right = kp.get_roi(img_r)
-
-    result_img_left = kp.apply_roi_mask(img_l, roi_left)
-    result_img_right = kp.apply_roi_mask(img_r, roi_right)
-
-    disparity = compute_disparity(result_img_left, result_img_right, config)
-    filtered_disparity = kp.apply_roi_mask(disparity, roi_left)
-
-    dense_point_cloud, dense_colors = disparity_to_pointcloud(disparity, fx, fy, cx1, cx2, cy, baseline, img_l, filtered_disparity)
-
-    return filtered_disparity, dense_point_cloud, dense_colors, eps, min_samples
 
 def point_cloud_correction(points, model):
     points = np.asarray(points)

@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import open3d as o3d
 from scipy.spatial import KDTree
 from sklearn.cluster import DBSCAN
-from dense_point_cloud.util import prepare_point_cloud, prepare_individual_point_clouds, convert_point_cloud_format, convert_individual_point_clouds_format
+from dense_point_cloud.util import prepare_point_cloud, prepare_individual_point_clouds, filter_points_by_optimal_range, get_Y_bounds
 from dense_point_cloud.Selective_IGEV.bridge_selective import get_SELECTIVE_disparity_map
 from dense_point_cloud.RAFTStereo.bridge_raft import get_RAFT_disparity_map
 from calibration.rectification import load_stereo_maps 
@@ -16,31 +16,7 @@ from calibration.rectification import load_stereo_maps
 from scipy.spatial import cKDTree
 
 
-fx1 = 1429.4995220185822
-fy1 = 1430.4111785502332
-
-fx2 = 1433.6695087748499
-fy2 = 1434.7285140471024
-
-fx = (fx1 + fx2) / 2
-fy = (fy1 + fy2) / 2
-
-cx1 = 929.8227256572083
-cy1 = 506.4722541384677
-
-cx2 = 936.8035788332203
-cy2 = 520.1168815891416
-
-cy = (cy1 + cy2) / 2
-baseline = 32.95550620237698 
-
-
-"""
-disparity_maps = get_RAFT_disparity_map(
-        img_left, img_right, 
-        restore_ckpt="models/raftstereo-middlebury.pth",
-    )
-"""
+# Clase encargada de la normalizacion estandar de las nubes de puntos
 class PointCloudNormalizer:
     def __init__(self, target_unit_scale=1.0):
         self.target_unit_scale = target_unit_scale
@@ -80,6 +56,15 @@ class PointCloudNormalizer:
             return cloud  # Devuelve la nube original en caso de error
 
 def process_numpy_point_cloud(points_np):
+    """
+    Normaliza la dimension de la nube de puntos ingresada a un tamaño estandar en donde no se pierden las distancias relativas entre objetos dentro de la nube 3D.
+
+    Args:
+        points_np (np.array): Array con los puntos de la nube de puntos 3D.
+
+    Returns:
+        return: Array con los puntos de la nube de puntos 3D normalizados.
+    """
     # Convertir numpy array a Open3D PointCloud
     cloud = o3d.geometry.PointCloud()
     cloud.points = o3d.utility.Vector3dVector(points_np)
@@ -197,7 +182,7 @@ def generate_dense_point_cloud(img_left: np.array, img_right: np.array, config: 
     # Normalizar la nube de puntos si se solicita
     if normalize:
         point_cloud = process_numpy_point_cloud(point_cloud)
-    
+    prepare_point_cloud(point_cloud, colors)
     return point_cloud, colors
 
 
@@ -257,7 +242,6 @@ def generate_combined_filtered_point_cloud(img_left: np.array, img_right: np.arr
     # Normalizar la nube de puntos si se solicita
     if normalize:
         point_cloud = process_numpy_point_cloud(point_cloud)
-
     prepare_point_cloud(point_cloud, colors)
     return point_cloud, colors
 
@@ -400,266 +384,40 @@ def compute_centroids(points, k=5, threshold_factor=1.0, eps_factor=2, min_sampl
     return centroids
 
 
-######################### NEXT FUNCTION ARE JUST FOR TESTING PURPOSES #################################
-def test_disparity_map(img_left, img_right, config, method):
-    # Calcular el mapa de disparidad
-    disparity_map = compute_disparity(img_left, img_right, config, method)
-
-
-    # Visualizar el mapa de disparidad generado
-    plt.imshow(disparity_map, cmap='jet')
-    plt.colorbar()
-    plt.title('Disparity Map')
-    plt.show()
-
-def test_point_cloud(img_left, img_right, config, method, use_max_disparity, normalized):
-    # Generar la nube de puntos 3D
-    point_cloud, colors = generate_dense_point_cloud(img_left, img_right, config, method, use_max_disparity, normalized)
-    pcGen.save_point_cloud(point_cloud, colors, "./point_clouds/DEMO/densaDEMO")
-    # Convertir los datos de la nube de puntos y colores a formato Open3D
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(point_cloud)
-    pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)  # Normalizar los colores a [0, 1]
-
-    # Crear una ventana de visualización
-    viewer = o3d.visualization.Visualizer()
-    viewer.create_window(window_name="3D Point Cloud", width=800, height=600)
-
-    # Añadir la nube de puntos a la ventana de visualización
-    viewer.add_geometry(pcd)
-
-    # Configurar opciones de renderizado
-    opt = viewer.get_render_option()
-    opt.point_size = 1  # Establecer el tamaño de los puntos
-
-    # Ejecutar la visualización
-    viewer.run()
-    viewer.destroy_window()
-
-def test_filtered_point_cloud(img_left, img_right, config, method, use_roi, use_max_disparity, normalized):
-    # Generar la nube de puntos 3D filtrada y combinada
-    point_cloud, colors = generate_combined_filtered_point_cloud(img_left, img_right, config, method, use_roi, use_max_disparity, normalized)
-    convert_point_cloud_format(output_format='xyzrgb')
-    pcGen.save_point_cloud(point_cloud, colors, "./point_clouds/DEMO/NOdensaDEMO")
-    # Convertir los datos de la nube de puntos y colores a formato Open3D
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(point_cloud)
-    pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)  # Normalizar los colores a [0, 1]
-
-    # Crear una ventana de visualización
-    viewer = o3d.visualization.Visualizer()
-    viewer.create_window(window_name="Filtered 3D Point Cloud", width=800, height=600)
-
-    # Añadir la nube de puntos a la ventana de visualización
-    viewer.add_geometry(pcd)
-
-    # Crea bounding boxes de los puntos en la nube
-    aabb = pcd.get_axis_aligned_bounding_box()
-    aabb.color = (1, 0, 0)
-
-    viewer.add_geometry(aabb)
-
-    
-    # Configurar opciones de renderizado
-    opt = viewer.get_render_option()
-    if not use_roi:
-        opt.point_size = 5  # Establecer el tamaño de los puntos
-    else:
-        opt.point_size = 1
-    # Ejecutar la visualización
-    viewer.run()
-    viewer.destroy_window()
-
-def test_filtered_point_cloud_with_centroids(img_left, img_right, config, method, use_roi, use_max_disparity, normalized):
-    # Generar la nube de puntos 3D filtrada y combinada
-    point_cloud, colors = generate_combined_filtered_point_cloud(img_left, img_right, config, method, use_roi, use_max_disparity, normalized)
-
-    pcGen.save_point_cloud(point_cloud, colors, "./point_clouds/DEMO/NOdensaDEMO")
-    # Convertir los datos de la nube de puntos y colores a formato Open3D
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(point_cloud)
-    pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)  # Normalizar los colores a [0, 1]
-
-    # Calcular los centroides de los clusters/personas
-    centroids = compute_centroids(point_cloud)
-
-    print(f"CENTROIDES: {centroids}")
-    # Crear una ventana de visualización
-    viewer = o3d.visualization.Visualizer()
-    viewer.create_window(window_name="Filtered 3D Point Cloud with Centroids", width=800, height=600)
-
-    # Añadir la nube de puntos a la ventana de visualización
-    viewer.add_geometry(pcd)
-
-    # Añadir las esferas de los centroides a la ventana de visualización
-    for centroid in centroids:
-        sphere = o3d.geometry.TriangleMesh.create_sphere(radius=5)  # Ajusta el radio según sea necesario
-        sphere.translate(centroid)
-        sphere.paint_uniform_color([1.0, 0.0, 0.0])  # Rojo
-        viewer.add_geometry(sphere)
-
-    # Crear bounding boxes de los puntos en la nube
-    aabb = pcd.get_axis_aligned_bounding_box()
-    aabb.color = (1, 0, 0)
-    viewer.add_geometry(aabb)
-
-    # Configurar opciones de renderizado
-    opt = viewer.get_render_option()
-    if not use_roi:
-        opt.point_size = 5  # Establecer el tamaño de los puntos
-    else:
-        opt.point_size = 1
-    
-    # Ejecutar la visualización
-    viewer.run()
-    viewer.destroy_window()
-
-def test_individual_filtered_point_clouds(img_left, img_right, config, method, use_roi, use_max_disparity, normalized):
-    # Generar listas de nubes de puntos y colores para cada objeto detectado
-    point_cloud_list, color_list, keypoints3d = generate_individual_filtered_point_clouds(img_left, img_right, config, method, use_roi, use_max_disparity, normalized)
-    
-    for i, (point_cloud, colors) in enumerate(zip(point_cloud_list, color_list)):
-        # Convertir los datos de la nube de puntos y colores a formato Open3D
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(point_cloud)
-        pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)  # Normalizar los colores a [0, 1]
-
-        # Crear una ventana de visualización
-        viewer = o3d.visualization.Visualizer()
-        viewer.create_window(window_name=f"3D Point Cloud for Object {i+1}", width=800, height=600)
-
-        # Añadir la nube de puntos a la ventana de visualización
-        viewer.add_geometry(pcd)
-
-        # Configurar opciones de renderizado
-        opt = viewer.get_render_option()
-        if not use_roi:
-            opt.point_size = 5  # Establecer el tamaño de los puntos
-        else:
-            opt.point_size = 1
-        # Ejecutar la visualización
-        
-        viewer.run()
-        viewer.clear_geometries()
-        viewer.destroy_window()
-    
-    for i, (point_cloud, colors) in enumerate(zip(keypoints3d, color_list)):
-        # Convertir los datos de la nube de puntos y colores a formato Open3D
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(point_cloud)
-        pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)  # Normalizar los colores a [0, 1]
-
-        # Crear una ventana de visualización
-        viewer = o3d.visualization.Visualizer()
-        viewer.create_window(window_name=f"3D Point Cloud for Object {i+1}", width=800, height=600)
-
-        # Añadir la nube de puntos a la ventana de visualización
-        viewer.add_geometry(pcd)
-
-        # Configurar opciones de renderizado
-        opt = viewer.get_render_option()
-        if not use_roi:
-            opt.point_size = 5  # Establecer el tamaño de los puntos
-        else:
-            opt.point_size = 1
-        # Ejecutar la visualización
-        
-        viewer.run()
-        viewer.clear_geometries()
-        viewer.destroy_window()
-
-
-def test_individual_filtered_point_cloud_with_centroid(img_left, img_right, config, method, use_roi, use_max_disparity, normalized):
-    # Generar listas de nubes de puntos y colores para cada objeto detectado
-    point_cloud_list, color_list, keypoints3d = generate_individual_filtered_point_clouds(img_left, img_right, config, method, use_roi, use_max_disparity, normalized)
-    
-    for i, (point_cloud, colors) in enumerate(zip(point_cloud_list, color_list)):
-        # Calcular el centroide omitiendo puntos ruidosos
-        centroid = compute_centroid(point_cloud)
-        print(f"CENTROIDE:  {centroid}")
-
-        # Convertir los datos de la nube de puntos y colores a formato Open3D
-        pcd = o3d.geometry.PointCloud()
-        pcd.points = o3d.utility.Vector3dVector(point_cloud)
-        pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)  # Normalizar los colores a [0, 1]
-
-        # Crear una nube de puntos para el centroide (VARIANTE 1)
-        # centroid_pcd = o3d.geometry.PointCloud()
-        # centroid_pcd.points = o3d.utility.Vector3dVector(np.array([centroid]))
-        # centroid_pcd.colors = o3d.utility.Vector3dVector(np.array([[1.0, 0.0, 0.0]]))  # Rojo
-
-        # Crear una esfera para el centroide (VARIANTE 2)
-        centroid_pcd = o3d.geometry.TriangleMesh.create_sphere(radius=5)  # Ajusta el radio según sea necesario
-        centroid_pcd.translate(centroid)
-        centroid_pcd.paint_uniform_color([1.0, 0.0, 0.0])  # Rojo
-
-        # Crear una ventana de visualización
-        viewer = o3d.visualization.Visualizer()
-        viewer.create_window(window_name=f"3D Point Cloud for Object {i+1}", width=800, height=600)
-
-        # Añadir la nube de puntos y el centroide a la ventana de visualización
-        viewer.add_geometry(pcd)
-        viewer.add_geometry(centroid_pcd)
-
-        # Configurar opciones de renderizado
-        opt = viewer.get_render_option()
-        if not use_roi:
-            opt.point_size = 5  # Establecer el tamaño de los puntos
-        else:
-            opt.point_size = 1
-        
-        # Ejecutar la visualización
-        viewer.run()
-        viewer.clear_geometries()
-        viewer.destroy_window()
-
-
-
-
-def load_config(path):
+def estimate_height_from_point_cloud(point_cloud: np.array, k: int = 5, threshold_factor: float = 1.0, m_initial: float = 50.0):
     """
-    Carga la configuración desde un archivo JSON.
+    Estima la altura de una persona a partir de una nube de puntos y calcula el centroide de los keypoints.
+
+    Args:
+        point_cloud (np.array): Nube de puntos 3D representada como un array numpy de forma (N, 3).
+        k (int): Número de vecinos más cercanos para calcular el centroide.
+        threshold_factor (float): Factor de umbral para eliminar el ruido en el cálculo del centroide.
+        m_initial (float): Rango inicial para filtrar los puntos alrededor del centroide.
+
+    Returns:
+        Tuple[float, np.array]: Altura estimada de la persona y el centroide calculado.
     """
-    with open(path, 'r') as file:
-        config = json.load(file)
-    return config
+    try:
+        # Calcular el centroide de la nube de puntos
+        centroid = compute_centroid(point_cloud, k=k, threshold_factor=threshold_factor)
 
-if __name__ == "__main__":
-    # Cargar las imágenes como arrays
-    img_left = cv2.imread("../images/calibration_results/matlab_1/flexometer/250 y 600/14_13_13_13_05_2024_IMG_LEFT.jpg")
-    img_right = cv2.imread("../images/calibration_results/matlab_1/flexometer/250 y 600/14_13_13_13_05_2024_IMG_RIGHT.jpg")
-    
-    if img_left is None or img_right is None:
-        raise FileNotFoundError("Una o ambas imágenes no pudieron ser cargadas. Verifique las rutas.")
+        # Filtrar los puntos de la nube en un rango óptimo basado en el centroide
+        filtered_points = filter_points_by_optimal_range(point_cloud, centroid, m_initial)
 
-    img_left = cv2.cvtColor(img_left, cv2.COLOR_BGR2RGB)
-    img_right = cv2.cvtColor(img_right, cv2.COLOR_BGR2RGB)
+        # Obtener los límites mínimos y máximos en Y (altura)
+        y_min, y_max = get_Y_bounds(filtered_points)
 
+        if y_min is not None and y_max is not None:
+            # Calcular la altura como la diferencia entre Y_max y Y_min
+            height = abs(y_max - y_min)
+            print(f"Para el centroide con z = {centroid[2]}, el rango de Y es: Y_min = {y_min}, Y_max = {y_max}")
+            print(f"La altura de la persona es de {height}\n")
+            return height, centroid
+        else:
+            print("No se encontraron puntos en el rango óptimo para este centroide.")
+            return None, centroid
 
-    # Cargar configuración desde el archivo JSON
-    config = load_config("../profiles/profile1.json")
-    
-    # Asumiendo que queremos usar el método SGBM, ajusta si es RAFT o SELECTIVE según tu configuración
-    method = 'SGBM'
-
-    # #TEST MAPA DISPARIDAD
-    # test_disparity_map(img_left, img_right, config, method)
-
-    # #TEST NUBE DE PUNTOS DENSA
-    # test_point_cloud(img_left, img_right, config, method, use_max_disparity=False)
-
-
-    # #TEST NUBE DE PUNTOS NO DENSA TOTAL
-    #test_filtered_point_cloud(img_left, img_right, config, method, use_roi=False, use_max_disparity=True)
-
-    # #TEST CENTROIDE EN NUBE DE PUNTOS NO DENSA TOTAL
-    # test_filtered_point_cloud_with_centroids(img_left, img_right, config, method, use_roi=False, use_max_disparity=True)
-
-
-
-    # #TEST NUBE DE PUNTOS NO DENSA INDIVIDUAL
-    # test_individual_filtered_point_clouds(img_left, img_right, config, method, use_roi=False, use_max_disparity=True)
-
-    # #TEST CENTROIDE EN NUBE DE PUNTOS NO DENSA INDIVIDUAL
-    # test_individual_filtered_point_cloud_with_centroid(img_left, img_right, config, method, use_roi=False, use_max_disparity=True)
+    except ValueError as ve:
+        print(f"Error al calcular el centroide: {ve}")
+        return None, None
 
