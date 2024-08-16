@@ -54,7 +54,7 @@ situations = {
 
 # is_roi = (mask_type == "roi")
 
-# method_used = "SGBM" #OPTIONS: "SGBM". "RAFT", "SELECTIVE"
+# method_used = "SGBM" #OPTIONS: "SGBM". 'WLS-SGBM', "RAFT", "SELECTIVE"
 # apply_correction = False
 
 
@@ -153,7 +153,7 @@ if __name__ == "__main__":
     # Aquí puedes inicializar las variables necesarias, por ejemplo:
 
     configs = load_config("profiles/MATLAB.json")  # Tu configuración específica
-    method_used = "SGBM"  # O el método que uses, como "RAFT", "SELECTIVE"
+    method_used = "SGBM"  # O el método que uses, como 'WLS-SGBM', "RAFT", "SELECTIVE"
     is_roi = False  # O True, dependiendo de si usas ROI
     apply_correction = False  # O False, dependiendo si aplicas corrección
     model = None  # Define tu modelo de corrección si es necesario

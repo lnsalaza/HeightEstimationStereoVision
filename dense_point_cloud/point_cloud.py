@@ -14,69 +14,60 @@ from dense_point_cloud.RAFTStereo.bridge_raft import get_RAFT_disparity_map
 from calibration.rectification import load_stereo_maps 
 
 from scipy.spatial import cKDTree
-
+from scipy.spatial import distance_matrix
+import numpy as np
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # Clase encargada de la normalizacion estandar de las nubes de puntos
-class PointCloudNormalizer:
-    def __init__(self, target_unit_scale=1.0):
-        self.target_unit_scale = target_unit_scale
+class PointCloudScaler:
+    def __init__(self, reference_point, scale_factor):
+        self.reference_point = np.array(reference_point)
+        self.scale_factor = scale_factor
 
-    def normalize(self, cloud):
-        try:
-            # Obtener los puntos como un numpy array
-            points = np.asarray(cloud.points)
-            
-            # Crear un KD-Tree para buscar los vecinos más cercanos
-            kdtree = cKDTree(points)
-            
-            # Buscar el vecino más cercano para cada punto
-            distances, _ = kdtree.query(points, k=2)  # k=2 porque la primera distancia es 0 (el mismo punto)
-            
-            # Excluir distancias que sean 0 antes de encontrar el mínimo
-            non_zero_distances = distances[:, 1][distances[:, 1] > 0]
-            
-            if non_zero_distances.size == 0:
-                raise ValueError("All non-zero distances are zero. The point cloud might be degenerate.")
-            
-            # Tomar la distancia mínima que no sea cero
-            min_dist = np.min(non_zero_distances)
-            
-            # Determinar el factor de escala para ajustar la nube a la escala deseada
-            scale_factor = self.target_unit_scale / min_dist
-            
-            # Escalar la nube de puntos
-            cloud.scale(scale_factor, center=cloud.get_center())
+    def calculate_scaled_positions(self, points):
+        # Restar el punto de referencia a todos los puntos
+        shifted_points = points - self.reference_point
+        
+        # Escalar los puntos
+        scaled_points = self.scale_factor * shifted_points
+        
+        # Volver a mover los puntos al sistema de referencia original
+        new_positions = scaled_points + self.reference_point
+        
+        return new_positions
 
-            # Mover la nube al origen
-            cloud.translate(-cloud.get_center())
-            
-            return cloud
-        except Exception as e:
-            print(f"Error normalizing point cloud: {e}")
-            return cloud  # Devuelve la nube original en caso de error
+    def scale_cloud(self, points):
+        # Procesa todos los puntos sin dividirlos en trozos ni usar procesamiento paralelo
+        new_positions = self.calculate_scaled_positions(points)
+        return new_positions
 
-def process_numpy_point_cloud(points_np):
+def correct_depth_o3d(points, alpha=0.5):
     """
-    Normaliza la dimension de la nube de puntos ingresada a un tamaño estandar en donde no se pierden las distancias relativas entre objetos dentro de la nube 3D.
-
-    Args:
-        points_np (np.array): Array con los puntos de la nube de puntos 3D.
-
-    Returns:
-        return: Array con los puntos de la nube de puntos 3D normalizados.
+    Aplica una corrección de profundidad a una nube de puntos 3D numpy array.
+    
+    :param points: Numpy array de puntos 3D
+    :param alpha: Parámetro de la transformación de potencia (0 < alpha < 1)
+    :return: Numpy array de puntos 3D corregidos
     """
-    # Convertir numpy array a Open3D PointCloud
-    cloud = o3d.geometry.PointCloud()
-    cloud.points = o3d.utility.Vector3dVector(points_np)
+    X, Y, Z = points[:, 0], points[:, 1], points[:, 2]
+    Z_safe = np.where(Z == 0, np.finfo(float).eps, Z)
+    Z_corrected = Z_safe ** alpha
+    X_corrected = X * (Z_corrected / Z_safe)
+    Y_corrected = Y * (Z_corrected / Z_safe)
+    corrected_points = np.vstack((X_corrected, Y_corrected, Z_corrected)).T
+    return corrected_points
+
+def process_numpy_point_cloud(points_np, reference_point=[0, 0, 0], scale_factor=0.280005, alpha=1.0005119):
+    # Escalar la nube de puntos
+    scaler = PointCloudScaler(reference_point=reference_point, scale_factor=scale_factor)
+    scaled_points_np = scaler.scale_cloud(points_np)
     
-    # Normalizar la nube de puntos manteniendo la relación interna
-    normalizer = PointCloudNormalizer(target_unit_scale=1.0)  # 1 unidad = 1 metro
-    normalized_cloud = normalizer.normalize(cloud)
+    # Aplicar corrección de profundidad
+    corrected_points_np = correct_depth_o3d(scaled_points_np, alpha)
     
-    # Convertir de nuevo a numpy array si es necesario
-    normalized_points_np = np.asarray(normalized_cloud.points)
-    
-    return normalized_points_np
+    return corrected_points_np
+
+
 
 def rectify_images(img_left: np.array, img_right: np.array, config: str):
     """
@@ -112,7 +103,7 @@ def compute_disparity(img_left: np.array, img_right: np.array, config: dict, met
     :param img_left: Imagen del lado izquierdo como array de numpy.
     :param img_right: Imagen del lado derecho como array de numpy.
     :param config: Diccionario de configuración para un perfil específico.
-    :param method: Método de disparidad a utilizar (e.g., 'SGBM', 'RAFT', 'SELECTIVE').
+    :param method: Método de disparidad a utilizar (e.g., 'SGBM', 'WLS-SGBM', 'RAFT', 'SELECTIVE').
     :return: Mapa de disparidad como array de numpy.
     """
     # Acceso a los métodos de disparidad configurados
@@ -120,6 +111,10 @@ def compute_disparity(img_left: np.array, img_right: np.array, config: dict, met
     
     if method == 'SGBM' and methods_config['SGBM']['enabled']:
         params = methods_config['SGBM']['params']
+        disparity = pcGen.compute_disparity(img_left, img_right, params)
+
+    elif method == 'WLS-SGBM' and methods_config['WLS-SGBM']['enabled']:
+        params = methods_config['WLS-SGBM']['params']
         disparity = pcGen.compute_disparity(img_left, img_right, params)
 
     elif method == 'RAFT' and methods_config['RAFT']['enabled']:
@@ -155,7 +150,7 @@ def generate_dense_point_cloud(img_left: np.array, img_right: np.array, config: 
     :param img_left: Imagen del lado izquierdo como array de numpy.
     :param img_right: Imagen del lado derecho como array de numpy.
     :param config: Diccionario de configuración para un perfil específico.
-    :param method: Método de disparidad a utilizar (e.g., 'SGBM', 'RAFT', 'SELECTIVE').
+    :param method: Método de disparidad a utilizar (e.g., 'SGBM', 'WLS-SGBM', 'RAFT', 'SELECTIVE').
     :param use_max_disparity: Booleano que indica si se debe utilizar la disparidad máxima para optimizar la nube de puntos.
     :param normalize: Booleano que indica si se debe normalizar la nube de puntos a una escala de unidad estándar.
     :return: Tuple que contiene la nube de puntos 3D densa y el array de colores correspondiente.
@@ -171,17 +166,19 @@ def generate_dense_point_cloud(img_left: np.array, img_right: np.array, config: 
     cx2 = config['camera_params']['cx2']
     cy = config['camera_params']['cy']
     baseline = config['camera_params']['baseline']
-
+    
+    scale_factor = 1
     # Generar nube de puntos 3D densa
-    if method == 'SGBM':
+    if method == 'SGBM' or method == 'WLS-SGBM':
         point_cloud, colors = pcGen.disparity_to_pointcloud(disparity_map, Q, img_left, use_max_disparity=use_max_disparity)
+        scale_factor = 3.45
     else:
         # Asumimos que RAFT y SELECTIVE usan la versión ML para reproyección
         point_cloud, colors = pcGen_ML.disparity_to_pointcloud(disparity_map, fx, fy, cx1, cx2, cy, baseline, img_left, use_max_disparity=use_max_disparity)
-
+        scale_factor = 0.280005
     # Normalizar la nube de puntos si se solicita
     if normalize:
-        point_cloud = process_numpy_point_cloud(point_cloud)
+        point_cloud = process_numpy_point_cloud(point_cloud, scale_factor=scale_factor)
     prepare_point_cloud(point_cloud, colors)
     return point_cloud, colors
 
@@ -209,7 +206,7 @@ def generate_combined_filtered_point_cloud(img_left: np.array, img_right: np.arr
     :param img_left: Imagen del lado izquierdo como array de numpy.
     :param img_right: Imagen del lado derecho como array de numpy.
     :param config: Diccionario de configuración para un perfil específico.
-    :param method: Método de disparidad a utilizar (e.g., 'SGBM', 'RAFT', 'SELECTIVE').
+    :param method: Método de disparidad a utilizar (e.g., 'SGBM', 'WLS-SGBM', 'RAFT', 'SELECTIVE').
     :param use_roi: Booleano que indica si se debe aplicar una Región de Interés (ROI) durante el procesamiento.
     :param use_max_disparity: Booleano que indica si se debe utilizar la disparidad máxima para optimizar la nube de puntos.
     :param normalize: Booleano que indica si se debe normalizar la nube de puntos a una escala de unidad estándar.
@@ -227,21 +224,23 @@ def generate_combined_filtered_point_cloud(img_left: np.array, img_right: np.arr
     cy = config['camera_params']['cy']
     baseline = config['camera_params']['baseline']
 
+    scale_factor = 1
     # Generar nube de puntos 3D filtrada combinada
-    if method == 'SGBM':
+    if method == 'SGBM' or method == 'WLS-SGBM':
         point_cloud, colors, eps, min_samples = pcGen.generate_all_filtered_point_cloud(
             img_left, disparity_map, Q, use_roi=use_roi, use_max_disparity=use_max_disparity, 
             camera_type="matlab"
         )
+        scale_factor = 3.45
     else:
         point_cloud, colors, eps, min_samples = pcGen_ML.generate_all_filtered_point_cloud(
             img_left, disparity_map, fx, fy, cx1, cx2, cy, baseline, use_roi=use_roi, use_max_disparity=use_max_disparity,
             camera_type="matlab"
         )
-
+        scale_factor = 0.280005
     # Normalizar la nube de puntos si se solicita
     if normalize:
-        point_cloud = process_numpy_point_cloud(point_cloud)
+        point_cloud = process_numpy_point_cloud(point_cloud, scale_factor=scale_factor)
     prepare_point_cloud(point_cloud, colors)
     return point_cloud, colors
 
@@ -254,7 +253,7 @@ def generate_individual_filtered_point_clouds(img_left: np.array, img_right: np.
         img_left (np.array): Imagen del lado izquierdo como array de numpy.
         img_right (np.array): Imagen del lado derecho como array de numpy.
         config (dict): Diccionario de configuración para un perfil específico.
-        method (str): Método de disparidad a utilizar (e.g., 'SGBM', 'RAFT', 'SELECTIVE').
+        method (str): Método de disparidad a utilizar (e.g., 'SGBM', 'WLS-SGBM', 'RAFT', 'SELECTIVE').
         use_roi (bool): Indica si aplicar una Región de Interés (ROI) durante el procesamiento.
         use_max_disparity (bool): Indica si utilizar la disparidad máxima para optimizar la nube de puntos.
         normalize (bool): Indica si normalizar la nube de puntos a una escala de unidad estándar.
@@ -275,19 +274,21 @@ def generate_individual_filtered_point_clouds(img_left: np.array, img_right: np.
     baseline = config['camera_params']['baseline']
 
     # Generar nubes de puntos filtradas para cada objeto detectado
-    if method == 'SGBM':
+    if method == 'SGBM' or method == 'WLS-SGBM':
         point_cloud_list, color_list, eps, min_samples, keypoints3d_list = pcGen.generate_filtered_point_cloud(
             img_left, disparity_map, Q, "matlab", use_roi, use_max_disparity
         )
+        scale_factor = 3.45
     else:
         point_cloud_list, color_list, eps, min_samples, keypoints3d_list = pcGen_ML.generate_filtered_point_cloud(
             img_left, disparity_map, fx, fy, cx1, cx2, cy, baseline, "matlab", use_roi, use_max_disparity
         )
-
+        scale_factor = 0.280005
     # Normalizar las nubes de puntos si se solicita
     if normalize:
-        normalized_point_cloud_list = [process_numpy_point_cloud(cloud) for cloud in point_cloud_list]
-        normalized_keypoints_list = [process_numpy_point_cloud(kps) for kps in keypoints3d_list]
+        
+        normalized_point_cloud_list = [process_numpy_point_cloud(cloud, scale_factor=scale_factor) for cloud in point_cloud_list]
+        normalized_keypoints_list = [process_numpy_point_cloud(kps, scale_factor=scale_factor) for kps in keypoints3d_list]
         
         prepare_individual_point_clouds(normalized_point_cloud_list, color_list, normalized_keypoints_list)
         return normalized_point_cloud_list, color_list, normalized_keypoints_list
@@ -406,7 +407,7 @@ def estimate_height_from_point_cloud(point_cloud: np.array, k: int = 5, threshol
 
         # Obtener los límites mínimos y máximos en Y (altura)
         y_min, y_max = get_Y_bounds(filtered_points)
-
+        print(f"Ymax: {y_max}\nYmin: {y_min}")
         if y_min is not None and y_max is not None:
             # Calcular la altura como la diferencia entre Y_max y Y_min
             height = abs(y_max - y_min)

@@ -146,7 +146,7 @@ def create_mark_lines(width=200, height=40, depth=1000, interval=100):
 def visualize_dense_point_cloud(pcd_file):
     
     
-    mark_lines = create_mark_lines()
+    mark_lines = create_mark_lines(width=1000, height=300, depth=1600, interval=100)
     # Leer la nube de puntos densa
     pcd = o3d.io.read_point_cloud(pcd_file)
     # # ESCALADO BETA
@@ -170,7 +170,7 @@ def visualize_dense_point_cloud(pcd_file):
     #viewer.add_geometry(cropped_pcd)
     viewer.add_geometry(pcd)
     viewer.add_geometry(origin)
-    # viewer.add_geometry(mark_lines)
+    viewer.add_geometry(mark_lines)
     # Configurar opciones de renderizado
     opt = viewer.get_render_option()
     opt.point_size = 1
@@ -200,11 +200,12 @@ if __name__ == "__main__":
     situacion = "150_A"
     
     # filepath = f"../point_clouds/{config}/{mask}_disparity/{config}_{situacion}"
-    # filepath = "../../tmp/point_clouds/intermediate_point_cloud"
+    filepath = "../../tmp/TESTING2/WLS"
     # filepath = "../point_clouds/SGBM/keypoints_disparity/SGBM_150_A"
-    filepath = "../point_clouds/DEMO/densaDEMO"
+    # filepath = "../point_clouds/DEMO/densaDEMO"
     # Visualización de la nube de puntos densa
     dense_pcd_file = f"{filepath}.ply"
+
     visualize_dense_point_cloud(dense_pcd_file)
 
     

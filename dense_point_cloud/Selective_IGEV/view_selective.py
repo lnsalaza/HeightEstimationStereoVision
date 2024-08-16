@@ -70,7 +70,7 @@ for situation, variations in pairs.items():
             exit(1)
 
         # Proyección inversa
-        depth = (fx * baseline) / (-disp + (cx2 - cx1))
+        depth = -(fx * baseline) / (disp + (cx2 - cx1))
 
         # Verifica la forma de depth
         print(f"Forma de depth: {depth.shape}")

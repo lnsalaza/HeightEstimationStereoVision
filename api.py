@@ -141,7 +141,7 @@ async def dense_point_cloud(
         img_left (UploadFile): Imagen del lado izquierdo como archivo subido.
         img_right (UploadFile): Imagen del lado derecho como archivo subido.
         profile_name (str): Nombre del perfil de calibración a utilizar.
-        method (str): Método de disparidad a utilizar ('SGBM', 'RAFT', 'SELECTIVE').
+        method (str): Método de disparidad a utilizar ('SGBM', 'WLS-SGBM', 'RAFT', 'SELECTIVE').
         use_max_disparity (bool): Indica si se activa o desactiva un filtrado de puntos flotantes.
         normalize (bool): Indica si se debe normalizar la nube de puntos a una escala de unidad estándar.
 
@@ -194,7 +194,7 @@ async def complete_no_dense_point_cloud(
         img_left (UploadFile): Imagen del lado izquierdo como archivo subido.
         img_right (UploadFile): Imagen del lado derecho como archivo subido.
         profile_name (str): Nombre del perfil de calibración a utilizar.
-        method (str): Método de disparidad a utilizar ('SGBM', 'RAFT', 'SELECTIVE').
+        method (str): Método de disparidad a utilizar ('SGBM', 'WLS-SGBM', 'RAFT', 'SELECTIVE').
         use_roi (bool): Indica si aplicar una región de interés (ROI) durante el procesamiento.
         use_max_disparity (bool): Indica si se activa o desactiva un filtrado de puntos flotantes.
         normalize (bool): Indica si se debe normalizar la nube de puntos a una escala de unidad estándar.
@@ -250,7 +250,7 @@ async def individual_no_dense_point_cloud(
         img_left (UploadFile): Imagen del lado izquierdo como archivo subido.
         img_right (UploadFile): Imagen del lado derecho como archivo subido.
         profile_name (str): Nombre del perfil de calibración a utilizar.
-        method (str): Método de disparidad a utilizar ('SGBM', 'RAFT', 'SELECTIVE').
+        method (str): Método de disparidad a utilizar ('SGBM', 'WLS-SGBM', 'RAFT', 'SELECTIVE').
         use_roi (bool): Indica si aplicar una Región de Interés (ROI) durante el procesamiento.
         use_max_disparity (bool): Indica si utilizar la disparidad máxima para optimizar la nube de puntos.
         normalize (bool): Indica si se debe normalizar la nube de puntos a una escala de unidad estándar.
@@ -274,10 +274,8 @@ async def individual_no_dense_point_cloud(
 
         # Generar listas de nubes de puntos para cada objeto detectado
         point_clouds_list, colors_list, keypoints3d = generate_individual_filtered_point_clouds(
-            left_image_rect, right_image_rect, profile, method, use_roi, use_max_disparity
+            left_image_rect, right_image_rect, profile, method, use_roi, use_max_disparity, normalize
         )
-        if normalize:
-            point_clouds_list = [process_numpy_point_cloud(pc) for pc in point_clouds_list]
 
         return {
             "point_clouds": [pc.tolist() for pc in point_clouds_list],
@@ -311,7 +309,7 @@ async def estimate_height_from_cloud(
         img_left (UploadFile): Imagen del lado izquierdo como archivo subido.
         img_right (UploadFile): Imagen del lado derecho como archivo subido.
         profile_name (str): Nombre del perfil de calibración a utilizar.
-        method (str): Método de disparidad a utilizar ('SGBM', 'RAFT', 'SELECTIVE').
+        method (str): Método de disparidad a utilizar ('SGBM', 'WLS-SGBM', 'RAFT', 'SELECTIVE').
         use_max_disparity (bool): Indica si se activa o desactiva un filtrado de puntos flotantes.
         normalize (bool): Indica si se normaliza la nube de puntos a una escala de unidad estándar.
         k (int): Número de vecinos más cercanos para calcular el centroide.

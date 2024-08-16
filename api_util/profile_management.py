@@ -1,6 +1,8 @@
 import os
+import math
 import json
 from typing import Dict, Optional
+
 def save_profile(profile_data, profile_name, directory="profiles"):
     # Asegurarse de que el directorio existe; crearlo si no es así
     os.makedirs(directory, exist_ok=True)
@@ -22,26 +24,57 @@ def generate_profile_data(calibration_data: Dict, profile_name: str) -> Dict:
     Returns:
         Dict: Datos del perfil formateados según la estructura requerida.
     """
+    # Calcula el promedio geométrico de fx y fy para ambas cámaras
+    fx = math.sqrt(calibration_data['flCamera1'][0] * calibration_data['flCamera2'][0])
+    fy = math.sqrt(calibration_data['flCamera1'][1] * calibration_data['flCamera2'][1])
+    
+    # Calcula el promedio geométrico general para usar como f en Q_matrix
+    f = math.sqrt(fx * fy)
+    
+    # Distancia entre las cámaras (baseline)
+    Tx = calibration_data['stereoT'][0]
+    
+    # Genera la matriz Q utilizando los valores calculados
+    Q_matrix = [
+        [1.0, 0.0, 0.0, -calibration_data['cameraMatrix1'][2][0]],
+        [0.0, 1.0, 0.0, -calibration_data['cameraMatrix1'][2][1]],
+        [0.0, 0.0, 0.0, f],  # Se usa el promedio geométrico de fx y fy aquí en caso de que no se tenga un fx, fy igual en las dos camaras. Idealmente deberia ser fx1=fy1=fx2=fy2
+        [0.0, 0.0, -1.0/Tx, (calibration_data['cameraMatrix1'][2][0] - calibration_data['cameraMatrix2'][2][0]) / Tx]
+    ]
+
+    # Estructura del perfil a devolver
     return {
         "profile_name": profile_name,
         "camera_params": {
-            "fx": (calibration_data['flCamera1'][0] + calibration_data['flCamera2'][0]) / 2,
-            "fy": (calibration_data['flCamera1'][1] + calibration_data['flCamera2'][1]) / 2,
+            "fx": fx,
+            "fy": fy,
             "cx1": calibration_data['cameraMatrix1'][2][0],
             "cx2": calibration_data['cameraMatrix2'][2][0],
             "cy": (calibration_data['cameraMatrix1'][2][1] + calibration_data['cameraMatrix2'][2][1]) / 2,
-            "baseline": calibration_data['stereoT'][0],
-            "Q_matrix": [
-                [1.0, 0.0, 0.0, -calibration_data['cameraMatrix1'][2][0]],
-                [0.0, 1.0, 0.0, -calibration_data['cameraMatrix1'][2][1]],
-                [0.0, 0.0, 0.0, calibration_data['flCamera1'][0]],
-                [0.0, 0.0, calibration_data['stereoT'][0], 0.0]
-            ]
+            "baseline": Tx,
+            "Q_matrix": Q_matrix
         },
         "disparity_methods": {
             "SGBM": {
                 "enabled": True,
                 "name": "StereoSGBM",
+                "params": {
+                    "numDisparities": 68,
+                    "blockSize": 7,
+                    "minDisparity": 5,
+                    "disp12MaxDiff": 33,
+                    "uniquenessRatio": 10,
+                    "speckleWindowSize": 50,
+                    "speckleRange": 1,
+                    "preFilterCap": 33,
+                    "mode": "StereoSGBM_MODE_HH",
+                    "wls_filter": False
+                },
+                "correction_model": ""
+            },
+            "WLS-SGBM": {
+                "enabled": True,
+                "name": "StereoSGBM-WLS",
                 "params": {
                     "numDisparities": 68,
                     "blockSize": 7,
@@ -76,7 +109,6 @@ def generate_profile_data(calibration_data: Dict, profile_name: str) -> Dict:
         "output_directory": "./output",
         "filename_template": "point_cloud_{timestamp}.ply"
     }
-
 def list_profiles(directory="profiles"):
     profiles = []
     for file in os.listdir(directory):

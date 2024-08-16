@@ -24,7 +24,7 @@ def test_point_cloud(img_left, img_right, config, method, use_max_disparity, nor
     # Generar la nube de puntos 3D
     point_cloud, colors = generate_dense_point_cloud(img_left, img_right, config, method, use_max_disparity, normalized)
     pcGen.save_point_cloud(point_cloud, colors, "./point_clouds/DEMO/densaDEMO.ply")
-    convert_point_cloud_format(output_format='xyzrgb')
+    
     # Convertir los datos de la nube de puntos y colores a formato Open3D
     pcd = o3d.geometry.PointCloud()
     pcd.points = o3d.utility.Vector3dVector(point_cloud)
@@ -36,6 +36,8 @@ def test_point_cloud(img_left, img_right, config, method, use_max_disparity, nor
 
     # Añadir la nube de puntos a la ventana de visualización
     viewer.add_geometry(pcd)
+    origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10, origin=[0,0,0])
+    viewer.add_geometry(origin)
 
     # Configurar opciones de renderizado
     opt = viewer.get_render_option()
@@ -227,11 +229,11 @@ def test_estimate_height_from_point_cloud(img_left, img_right, config, method, u
     point_cloud_list, color_list, keypoints3d = generate_individual_filtered_point_clouds(
         img_left, img_right, config, method, use_roi, use_max_disparity, normalized
     )
-    
-    for i, (point_cloud, colors) in enumerate(zip(point_cloud_list, color_list)):
+    i = 0
+    for (point_cloud, colors) in zip(point_cloud_list, color_list):
         # Estimar la altura de la persona
-        estimated_height, centroid = estimate_height_from_point_cloud(point_cloud)
-        
+        estimated_height, centroid = estimate_height_from_point_cloud(point_cloud=point_cloud, m_initial=100)
+        estimated_height
         if estimated_height is not None:
             print(f"Con el centroide {centroid}.\n'Altura estimada de la persona {i+1}: {estimated_height:.2f} unidades")
         else:
@@ -254,7 +256,7 @@ def test_estimate_height_from_point_cloud(img_left, img_right, config, method, u
 
         opt = viewer.get_render_option()
         opt.point_size = 1 if use_roi else 5
-        
+        i = i + 1
         viewer.run()
         viewer.clear_geometries()
         viewer.destroy_window()
@@ -269,28 +271,50 @@ def load_config(path):
     return config
 
 if __name__ == "__main__":
-    # Cargar las imágenes como arrays
-    img_left = cv2.imread("images/calibration_results/matlab_1/flexometer/150/14_03_37_13_05_2024_IMG_LEFT.jpg")
-    img_right = cv2.imread("images/calibration_results/matlab_1/flexometer/150/14_03_37_13_05_2024_IMG_RIGHT.jpg")
+    # # Cargar las imágenes como arrays
+    # img_left = cv2.imread("images/laser/groundTruth/298 y 604/15_22_21_07_06_2024_IMG_LEFT.jpg")
+    # img_right = cv2.imread("images/laser/groundTruth/298 y 604/15_22_21_07_06_2024_IMG_RIGHT.jpg")
+
+    # img_left = cv2.imread("images/distances/300/14_06_19_13_05_2024_IMG_LEFT.jpg")
+    # img_right = cv2.imread("images/distances/300/14_06_19_13_05_2024_IMG_RIGHT.jpg")
+
     
+    # img_left = cv2.imread("images/distances/300/14_06_13_13_05_2024_IMG_LEFT.jpg")
+    # img_right = cv2.imread("images/distances/300/14_06_13_13_05_2024_IMG_RIGHT.jpg")
+
+    # img_left = cv2.imread("images/distances/400/14_07_35_13_05_2024_IMG_LEFT.jpg")
+    # img_right = cv2.imread("images/distances/400/14_07_35_13_05_2024_IMG_RIGHT.jpg")
+
+    # img_left = cv2.imread("images/laser/calibracion/300/14_47_48_07_06_2024_IMG_LEFT.jpg")
+    # img_right = cv2.imread("images/laser/calibracion/300/14_47_48_07_06_2024_IMG_RIGHT.jpg")
+    
+    img_left = cv2.imread("../originals/h_train/330_z/158/14_20_28_31_07_2024_IMG_LEFT.jpg")
+    img_right = cv2.imread("../originals/h_train/330_z/158/14_20_28_31_07_2024_IMG_RIGHT.jpg")
+
+    # img_left = cv2.imread("../originals/h_train/457_z/173/14_32_27_31_07_2024_IMG_LEFT.jpg")
+    # img_right = cv2.imread("../originals/h_train/457_z/173/14_32_27_31_07_2024_IMG_RIGHT.jpg")
+
+    # img_left = cv2.imread("../originals/heights/157/16_13_54_19_07_2024_IMG_LEFT.jpg")
+    # img_right = cv2.imread("../originals/heights/157/16_13_54_19_07_2024_IMG_RIGHT.jpg")
+
     if img_left is None or img_right is None:
         raise FileNotFoundError("Una o ambas imágenes no pudieron ser cargadas. Verifique las rutas.")
 
-    img_left = cv2.cvtColor(img_left, cv2.COLOR_BGR2RGB)
-    img_right = cv2.cvtColor(img_right, cv2.COLOR_BGR2RGB)
 
-
-    # Cargar configuración desde el archivo JSON
-    config = load_config("profiles/profile1.json")
     
-    # Asumiendo que queremos usar el método SGBM, ajusta si es RAFT o SELECTIVE según tu configuración
-    method = 'SGBM'
+    # Cargar configuración desde el archivo JSON
+    config = load_config("profiles/MATLAB.json")
+    
+
+    img_left, img_right = rectify_images(img_left, img_right, config=config['profile_name'])
+    # Asumiendo que queremos usar el método SGBM, ajusta si es WLS-SGBM, RAFT o SELECTIVE según tu configuración
+    method = 'RAFT'
 
     # #TEST MAPA DISPARIDAD
     # test_disparity_map(img_left, img_right, config, method)
 
     # #TEST NUBE DE PUNTOS DENSA
-    #test_point_cloud(img_left, img_right, config, method, use_max_disparity=True, normalized=False)
+    # test_point_cloud(img_left, img_right, config, method, use_max_disparity=True, normalized=True)
 
 
     # #TEST NUBE DE PUNTOS NO DENSA TOTAL
@@ -308,35 +332,36 @@ if __name__ == "__main__":
 
 
     # #TEST CALCULO DE ALTURAS
-    #test_estimate_height_from_point_cloud(img_left, img_right, config, method, use_roi=False, use_max_disparity=True, normalized=False)
+    test_estimate_height_from_point_cloud(img_left, img_right, config, method, use_roi=False, use_max_disparity=True, normalized=True)
+    
     #points, colors = generate_combined_filtered_point_cloud(img_left, img_right, config, method, False, True)
-    points, colors = generate_dense_point_cloud(img_left, img_right, config, method, True, False)
+    #points, colors = generate_dense_point_cloud(img_left, img_right, config, method, True, True)
     # Seleccionar un subconjunto aleatorio de puntos, incluyendo el origen
-    NUM_POINTS_TO_DRAW = 500000
-    subset = np.random.choice(points.shape[0], size=(NUM_POINTS_TO_DRAW - 1,), replace=False)
-    subset = np.append(subset, points.shape[0] - 1)  # Asegurar que el origen esté incluido
-    points_subset = points[subset]
-    colors_subset = colors[subset]
+    # NUM_POINTS_TO_DRAW = 500000
+    # subset = np.random.choice(points.shape[0], size=(NUM_POINTS_TO_DRAW - 1,), replace=False)
+    # subset = np.append(subset, points.shape[0] - 1)  # Asegurar que el origen esté incluido
+    # points_subset = points[subset]
+    # colors_subset = colors[subset]
 
-    x, y, z = points_subset.T
+    # x, y, z = points_subset.T
 
-    fig = go.Figure(
-        data=[
-            go.Scatter3d(
-                x=x, y=y, z=z, # flipped to make visualization nicer
-                mode='markers',
-                marker=dict(size=1, color=colors_subset)
-            )
-        ],
-        layout=dict(
-            scene=dict(
-                xaxis=dict(visible=True),
-                yaxis=dict(visible=True),
-                zaxis=dict(visible=True),
-            )
-        )
-    )
-    fig.show()
-    print("TESTING IS ENDING...")
+    # fig = go.Figure(
+    #     data=[
+    #         go.Scatter3d(
+    #             x=x, y=y, z=z, # flipped to make visualization nicer
+    #             mode='markers',
+    #             marker=dict(size=1, color=colors_subset)
+    #         )
+    #     ],
+    #     layout=dict(
+    #         scene=dict(
+    #             xaxis=dict(visible=True),
+    #             yaxis=dict(visible=True),
+    #             zaxis=dict(visible=True),
+    #         )
+    #     )
+    # )
+    # fig.show()
+    # print("TESTING IS ENDING...")
 
 
