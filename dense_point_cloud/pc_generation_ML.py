@@ -92,7 +92,7 @@ def save_point_cloud(point_cloud, colors, filename):
     if not os.path.exists(os.path.dirname(filename)):
         os.makedirs(os.path.dirname(filename))
     pcd = create_point_cloud(point_cloud, colors)
-    o3d.io.write_point_cloud(filename, pcd, print_progress=True)
+    o3d.io.write_point_cloud(filename, pcd, print_progress=False)
 
 def process_point_cloud(point_cloud, eps, min_samples, base_filename, colors=None):
     labels = apply_dbscan(point_cloud, eps, min_samples)

@@ -54,7 +54,7 @@ def correct_depth_o3d(points, alpha=0.5):
     Z_corrected = Z_safe ** alpha
     X_corrected = X * (Z_corrected / Z_safe)
     Y_corrected = Y * (Z_corrected / Z_safe)
-    corrected_points = np.vstack((X_corrected, Y_corrected, Z_corrected)).T
+    corrected_points = np.vstack((X_corrected, Y_corrected, (0.6947802265318861*Z_corrected) + -14.393348239171985)).T
     return corrected_points
 
 def process_numpy_point_cloud(points_np, reference_point=[0, 0, 0], scale_factor=0.280005, alpha=1.0005119):
@@ -178,7 +178,7 @@ def generate_dense_point_cloud(img_left: np.array, img_right: np.array, config: 
         scale_factor = 0.280005
     # Normalizar la nube de puntos si se solicita
     if normalize:
-        point_cloud = process_numpy_point_cloud(point_cloud, scale_factor=scale_factor)
+        point_cloud = process_numpy_point_cloud(point_cloud, scale_factor=scale_factor, alpha=1.0005119)
     prepare_point_cloud(point_cloud, colors)
     return point_cloud, colors
 
@@ -240,7 +240,7 @@ def generate_combined_filtered_point_cloud(img_left: np.array, img_right: np.arr
         scale_factor = 0.280005
     # Normalizar la nube de puntos si se solicita
     if normalize:
-        point_cloud = process_numpy_point_cloud(point_cloud, scale_factor=scale_factor)
+        point_cloud = process_numpy_point_cloud(point_cloud, scale_factor=scale_factor, alpha=1.0005119)
     prepare_point_cloud(point_cloud, colors)
     return point_cloud, colors
 
@@ -287,8 +287,8 @@ def generate_individual_filtered_point_clouds(img_left: np.array, img_right: np.
     # Normalizar las nubes de puntos si se solicita
     if normalize:
         
-        normalized_point_cloud_list = [process_numpy_point_cloud(cloud, scale_factor=scale_factor) for cloud in point_cloud_list]
-        normalized_keypoints_list = [process_numpy_point_cloud(kps, scale_factor=scale_factor) for kps in keypoints3d_list]
+        normalized_point_cloud_list = [process_numpy_point_cloud(cloud, scale_factor=scale_factor, alpha=1.0005119) for cloud in point_cloud_list]
+        normalized_keypoints_list = [process_numpy_point_cloud(kps, scale_factor=scale_factor, alpha=1.0005119) for kps in keypoints3d_list]
         
         prepare_individual_point_clouds(normalized_point_cloud_list, color_list, normalized_keypoints_list)
         return normalized_point_cloud_list, color_list, normalized_keypoints_list
@@ -407,7 +407,6 @@ def estimate_height_from_point_cloud(point_cloud: np.array, k: int = 5, threshol
 
         # Obtener los límites mínimos y máximos en Y (altura)
         y_min, y_max = get_Y_bounds(filtered_points)
-        print(f"Ymax: {y_max}\nYmin: {y_min}")
         if y_min is not None and y_max is not None:
             # Calcular la altura como la diferencia entre Y_max y Y_min
             height = abs(y_max - y_min)

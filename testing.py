@@ -8,6 +8,7 @@ import open3d as o3d
 import plotly.graph_objects as go
 from dense_point_cloud.point_cloud import * 
 from dense_point_cloud.util import convert_point_cloud_format, convert_individual_point_clouds_format
+from testing_util import convert_to_gray
 ######################### NEXT FUNCTION ARE JUST FOR TESTING PURPOSES #################################
 def test_disparity_map(img_left, img_right, config, method):
     # Calcular el mapa de disparidad
@@ -287,9 +288,9 @@ if __name__ == "__main__":
 
     # img_left = cv2.imread("images/laser/calibracion/300/14_47_48_07_06_2024_IMG_LEFT.jpg")
     # img_right = cv2.imread("images/laser/calibracion/300/14_47_48_07_06_2024_IMG_RIGHT.jpg")
-    
-    img_left = cv2.imread("../originals/h_train/330_z/158/14_20_28_31_07_2024_IMG_LEFT.jpg")
-    img_right = cv2.imread("../originals/h_train/330_z/158/14_20_28_31_07_2024_IMG_RIGHT.jpg")
+                                                                                
+    img_left = cv2.imread("../HeightEstimationStereoVision/images/distances/200/14_04_59_13_05_2024_IMG_LEFT.jpg")
+    img_right = cv2.imread("../HeightEstimationStereoVision/images/distances/200/14_04_59_13_05_2024_IMG_RIGHT.jpg")
 
     # img_left = cv2.imread("../originals/h_train/457_z/173/14_32_27_31_07_2024_IMG_LEFT.jpg")
     # img_right = cv2.imread("../originals/h_train/457_z/173/14_32_27_31_07_2024_IMG_RIGHT.jpg")
@@ -308,10 +309,12 @@ if __name__ == "__main__":
 
     img_left, img_right = rectify_images(img_left, img_right, config=config['profile_name'])
     # Asumiendo que queremos usar el método SGBM, ajusta si es WLS-SGBM, RAFT o SELECTIVE según tu configuración
-    method = 'RAFT'
+    method = 'SELECTIVE'
 
+    # convert_to_gray("./raft_demo_output/output_1.png","./raft_demo_output/gray_output_1.png")
+    # convert_to_gray("./seletive_demo_output/output_1.png","./seletive_demo_output/gray_output_1.png")
     # #TEST MAPA DISPARIDAD
-    # test_disparity_map(img_left, img_right, config, method)
+    test_disparity_map(img_left, img_right, config, method)
 
     # #TEST NUBE DE PUNTOS DENSA
     # test_point_cloud(img_left, img_right, config, method, use_max_disparity=True, normalized=True)
@@ -332,7 +335,7 @@ if __name__ == "__main__":
 
 
     # #TEST CALCULO DE ALTURAS
-    test_estimate_height_from_point_cloud(img_left, img_right, config, method, use_roi=False, use_max_disparity=True, normalized=True)
+    #test_estimate_height_from_point_cloud(img_left, img_right, config, method, use_roi=False, use_max_disparity=True, normalized=True)
     
     #points, colors = generate_combined_filtered_point_cloud(img_left, img_right, config, method, False, True)
     #points, colors = generate_dense_point_cloud(img_left, img_right, config, method, True, True)

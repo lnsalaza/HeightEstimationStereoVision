@@ -21,7 +21,7 @@ def load_image_from_array(image_array):
 
 def get_SELECTIVE_disparity_map(
         img_left_array, img_right_array, restore_ckpt, 
-        output_directory="seletive_demo_output", save_numpy=False, mixed_precision=False, valid_iters=32, 
+        output_directory="selective_demo_output", save_numpy=False, mixed_precision=False, valid_iters=32, 
         hidden_dims=[128]*3, corr_implementation="reg", shared_backbone=False, corr_levels=2, 
         corr_radius=4, n_downsample=2, slow_fast_gru=False, n_gru_layers=3, max_disp=192):
     

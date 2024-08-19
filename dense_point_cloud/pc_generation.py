@@ -159,7 +159,7 @@ def save_point_cloud(point_cloud, colors, filename):
     if not os.path.exists(os.path.dirname(filename)):
         os.makedirs(os.path.dirname(filename))
     pcd = create_point_cloud(point_cloud, colors)
-    o3d.io.write_point_cloud(filename, pcd, print_progress=True)
+    o3d.io.write_point_cloud(filename, pcd, print_progress=False)
 
 def process_point_cloud(point_cloud, eps, min_samples, base_filename):
     labels = apply_dbscan(point_cloud, eps, min_samples)
@@ -188,7 +188,7 @@ def get_strutured_kepoints3d(keypoints, disparity, Q):
         nueva_persona = []
         for punto in persona:
             x, y = punto
-            coordenadas_3d = points_3D[int(y), int(x)]
+            coordenadas_3d = points_3D[int(y)-1, int(x)-1] #CHANGED FROM [int(y), int(x)]
             nueva_persona.append(coordenadas_3d)
         estructura_con_coordenadas_3d.append(np.array(nueva_persona, dtype=np.float64))
     

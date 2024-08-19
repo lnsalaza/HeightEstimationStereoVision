@@ -50,3 +50,19 @@ def load_config(path):
     with open(path, 'r') as file:
         config = json.load(file)
     return config
+
+def convert_to_gray(input_path, output_path):
+    # Load the image from the input path
+    image = cv2.imread(input_path)
+
+    # Check if the image was loaded correctly
+    if image is None:
+        raise ValueError(f"Error loading the image from {input_path}")
+
+    # Convert the image to grayscale
+    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Save the grayscale image to the output path
+    cv2.imwrite(output_path, gray_image)
+
+    print(f"Image converted to grayscale and saved at {output_path}")

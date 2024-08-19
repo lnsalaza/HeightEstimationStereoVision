@@ -127,7 +127,7 @@ def save_point_cloud(point_cloud, colors, camera_type, situation):
     pcd.points = o3d.utility.Vector3dVector(point_cloud)
     pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)
     filename = f"./point_clouds/{camera_type}_{situation}.ply"
-    o3d.io.write_point_cloud(filename, pcd, print_progress=True)
+    o3d.io.write_point_cloud(filename, pcd, print_progress=False)
 
 # # --------------------------------------------------- KEYPOINTS EXTRACTION -------------------------------------------------------
 
@@ -330,7 +330,7 @@ def create_point_cloud(points, colors=None):
 
 def save_point_cloud(point_cloud, colors, filename):
     pcd = create_point_cloud(point_cloud, colors)
-    o3d.io.write_point_cloud(filename, pcd, print_progress=True)
+    o3d.io.write_point_cloud(filename, pcd, print_progress=False)
 
 def process_point_cloud(point_cloud, eps, min_samples, base_filename):
     labels = apply_dbscan(point_cloud, eps, min_samples)
