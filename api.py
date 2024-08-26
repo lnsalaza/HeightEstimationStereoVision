@@ -165,8 +165,8 @@ async def dense_point_cloud(
         # Generar nube de puntos
         point_cloud, colors = generate_dense_point_cloud(left_image_rect, right_image_rect, profile, method, use_max_disparity=use_max_disparity, normalize=normalize)
         return {
-            "point_cloud": point_cloud.tolist(),
-            "colors": colors.tolist(),
+            "point_cloud": [point_cloud.tolist()],
+            "colors": [colors.tolist()],
             "profile_used": profile_name,
             "method_used": method,
             "normalized": normalize
