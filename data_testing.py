@@ -93,7 +93,7 @@ def process_situation(situation, variations, configs, camera_type, method_used, 
 
 def process_all_situations(pairs, configs, camera_type, method_used, is_roi, mask_type, normalize):
     all_data = []
-    base_filename = f"./datasets/data/estable/NO-NORM-{method_used}_HEIGHT"
+    base_filename = f"./datasets/data/estable/DEPTH-WITH-STATIC-HEIGHT/NORM-{method_used}_HEIGHT_STATIC_DEPTH"
     for situation, variations in pairs.items():
         try:
             data = process_situation(situation, variations, configs, camera_type, method_used, is_roi, mask_type, normalize=normalize)
@@ -173,16 +173,16 @@ if __name__ == "__main__":
     # Aquí puedes inicializar las variables necesarias, por ejemplo:
 
     configs = load_config("profiles/MATLAB.json")  # Tu configuración específica
-    method_used = "SELECTIVE"  # O el método que uses, como 'WLS-SGBM', "RAFT", "SELECTIVE"
+    method_used = "WLS-SGBM"  # O el método que uses, como 'WLS-SGBM', "RAFT", "SELECTIVE"
     is_roi = False  # O True, dependiendo de si usas ROI
     apply_correction = True  # O False, dependiendo si aplicas corrección
     model = None  # Define tu modelo de corrección si es necesario
     mask_type = "keypoints"  # Define el tipo de máscara
     
-    # pairs = read_image_pairs_by_distance("../originals/precision height x depth") #Tu diccionario de situaciones y variaciones
+    pairs = read_image_pairs_by_distance("../originals/Steven_depth") #Tu diccionario de situaciones y variaciones
 
     # # Llamar a la función principal
     # process_all_situations_path("../originals/precision height x depth", configs, method_used, method_used, is_roi, mask_type, apply_correction)
 
-
+    process_all_situations(pairs, configs, method_used, method_used, is_roi, mask_type, apply_correction)
     

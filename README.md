@@ -41,7 +41,7 @@ This project focuses on stereo vision to generate dense depth maps and segment p
 
 ### Depth Map and Point Cloud Generation
 
-The following examples demonstrate how to use the provided functions to generate disparity maps and point clouds. These examples are included in the script `pc_densa.py`:
+The following examples demonstrate how to use the provided functions to generate disparity maps and point clouds. These examples are included in the script `testing.py`:
 
 #### Example: Test Disparity Map
 ```python

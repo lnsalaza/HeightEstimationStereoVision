@@ -276,11 +276,11 @@ async def individual_no_dense_point_cloud(
         point_clouds_list, colors_list, keypoints3d = generate_individual_filtered_point_clouds(
             left_image_rect, right_image_rect, profile, method, use_roi, use_max_disparity, normalize
         )
-
+        
         return {
             "point_clouds": [pc.tolist() for pc in point_clouds_list],
             "colors": [colors.tolist() for colors in colors_list],
-            "keypoints_3d": keypoints3d,
+            "keypoints_3d": [kp.tolist() for kp in keypoints3d],
             "profile_used": profile_name,
             "method_used": method,
             "roi_used": use_roi,

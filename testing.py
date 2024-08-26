@@ -276,6 +276,9 @@ if __name__ == "__main__":
     # img_left = cv2.imread("images/laser/groundTruth/298 y 604/15_22_21_07_06_2024_IMG_LEFT.jpg")
     # img_right = cv2.imread("images/laser/groundTruth/298 y 604/15_22_21_07_06_2024_IMG_RIGHT.jpg")
 
+    img_left = cv2.imread("../originals/prof_alturas/300_z/174/15_00_11_19_08_2024_IMG_LEFT.jpg")
+    img_right = cv2.imread("../originals/prof_alturas/300_z/174/15_00_11_19_08_2024_IMG_RIGHT.jpg")
+
     # img_left = cv2.imread("images/distances/300/14_06_19_13_05_2024_IMG_LEFT.jpg")
     # img_right = cv2.imread("images/distances/300/14_06_19_13_05_2024_IMG_RIGHT.jpg")
 
@@ -289,8 +292,8 @@ if __name__ == "__main__":
     # img_left = cv2.imread("images/laser/calibracion/300/14_47_48_07_06_2024_IMG_LEFT.jpg")
     # img_right = cv2.imread("images/laser/calibracion/300/14_47_48_07_06_2024_IMG_RIGHT.jpg")
                                                                                 
-    img_left = cv2.imread("../HeightEstimationStereoVision/images/distances/200/14_04_59_13_05_2024_IMG_LEFT.jpg")
-    img_right = cv2.imread("../HeightEstimationStereoVision/images/distances/200/14_04_59_13_05_2024_IMG_RIGHT.jpg")
+    # img_left = cv2.imread("../HeightEstimationStereoVision/images/distances/250 y 600/14_13_13_13_05_2024_IMG_LEFT.jpg")
+    # img_right = cv2.imread("../HeightEstimationStereoVision/images/distances/250 y 600/14_13_13_13_05_2024_IMG_RIGHT.jpg")
 
     # img_left = cv2.imread("../originals/h_train/457_z/173/14_32_27_31_07_2024_IMG_LEFT.jpg")
     # img_right = cv2.imread("../originals/h_train/457_z/173/14_32_27_31_07_2024_IMG_RIGHT.jpg")
@@ -309,15 +312,15 @@ if __name__ == "__main__":
 
     img_left, img_right = rectify_images(img_left, img_right, config=config['profile_name'])
     # Asumiendo que queremos usar el método SGBM, ajusta si es WLS-SGBM, RAFT o SELECTIVE según tu configuración
-    method = 'SELECTIVE'
+    method = 'WLS-SGBM'
 
     # convert_to_gray("./raft_demo_output/output_1.png","./raft_demo_output/gray_output_1.png")
     # convert_to_gray("./seletive_demo_output/output_1.png","./seletive_demo_output/gray_output_1.png")
     # #TEST MAPA DISPARIDAD
-    test_disparity_map(img_left, img_right, config, method)
+    #test_disparity_map(img_left, img_right, config, method)
 
     # #TEST NUBE DE PUNTOS DENSA
-    # test_point_cloud(img_left, img_right, config, method, use_max_disparity=True, normalized=True)
+    #test_point_cloud(img_left, img_right, config, method, use_max_disparity=True, normalized=False)
 
 
     # #TEST NUBE DE PUNTOS NO DENSA TOTAL
@@ -335,8 +338,8 @@ if __name__ == "__main__":
 
 
     # #TEST CALCULO DE ALTURAS
-    #test_estimate_height_from_point_cloud(img_left, img_right, config, method, use_roi=False, use_max_disparity=True, normalized=True)
-    
+    test_estimate_height_from_point_cloud(img_left, img_right, config, method, use_roi=False, use_max_disparity=True, normalized=True)
+    print("")
     #points, colors = generate_combined_filtered_point_cloud(img_left, img_right, config, method, False, True)
     #points, colors = generate_dense_point_cloud(img_left, img_right, config, method, True, True)
     # Seleccionar un subconjunto aleatorio de puntos, incluyendo el origen

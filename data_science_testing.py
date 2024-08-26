@@ -69,6 +69,7 @@ def plot_depth_time_series(filename):
     
     # Asegurarse de que no hay valores NaN en las columnas que vamos a usar
     df = df.dropna(subset=['height', 'true_height'])
+    # df = df.dropna(subset=['depth', 'true_depth'])
 
     # Obtener la lista de personas únicas
     unique_persons = df['person_index'].unique()
@@ -97,11 +98,11 @@ def plot_depth_time_series(filename):
         person_data = df[df['person_index'] == person].sort_values(by='true_height').reset_index(drop=True)
         
         ax = axs[index]
-        ax.plot(person_data.index, person_data['height'], marker='o', linestyle='-', color=color, label=f'Person {person} [Estimated]')
-        ax.plot(person_data.index, person_data['true_height'], marker='x', linestyle='--', color=color2, label=f'Person {person} [True]')
+        ax.plot(person_data.index, person_data['height'], marker='o', linestyle='-', color=color, label=f'Height [Estimated]')
+        ax.plot(person_data.index, person_data['true_height'], marker='x', linestyle='--', color=color2, label=f'Height [True]')
         
         ax.set_xlabel('Sample Index')
-        ax.set_ylabel('Height')
+        ax.set_ylabel('Height (cm)')
         
         ax.legend()
         ax.grid(True)
@@ -111,11 +112,50 @@ def plot_depth_time_series(filename):
         ax.set_visible(False)  # Ocultar los subplots no utilizados
 
     # Añadir un título general a la figura
-    fig.suptitle('WLS-SGBM Height Estimation [CORRECTED]', fontsize=16, y=0.95)
+    fig.suptitle('WLS-SGBM Height Estimation at 300 (cm) Depth', fontsize=16, y=0.95)
     
     plt.tight_layout()
 
     # Mostrar la gráfica
+    plt.show()
+
+def plot_depth_vs_height(filename):
+    # Leer los datos desde un archivo CSV
+    df = pd.read_csv(filename)
+    
+    # Asegurarse de que los datos son numéricos
+    df['situation'] = pd.to_numeric(df['situation'], errors='coerce')
+    df['depth'] = pd.to_numeric(df['depth'], errors='coerce')
+    df['height'] = pd.to_numeric(df['height'], errors='coerce')
+
+    # Colores específicos para el gráfico
+    colors = ['#ad3224', '#2467ad']  # Azul oscuro y Rojo oscuro
+
+    # Crear la figura y el eje
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    # Plotear profundidad vs altura con el color especificado
+    ax.scatter(df['situation'], df['height'], color=colors[0], marker='o', label='Height [Estimated]')
+    
+    # Añadir una línea horizontal para la altura de ground truth con el segundo color
+    ground_truth_height = 169
+    ax.axhline(y=ground_truth_height, color=colors[1], linestyle='--', label=f'Height [True]: ({ground_truth_height} cm)')
+
+    # Configurar las etiquetas y título
+    ax.set_xlabel('Depth (cm)')
+    ax.set_ylabel('Height (cm)')
+    ax.set_title('WLS-SGBM Height Estimation vs Depth [CORRECTED]', fontsize=16, y=1)
+
+    # Configurar los límites del eje y
+    ax.set_ylim(100, 200)
+
+    # Mostrar la cuadrícula
+    ax.grid(True)
+
+    # Posicionar la leyenda en la esquina superior izquierda
+    ax.legend(loc='upper left')
+
+    # Mostrar el gráfico
     plt.show()
 
 def plot_precision_by_method(df):
@@ -137,12 +177,13 @@ def plot_precision_by_method(df):
         # Usar fill_between para rellenar el área bajo la curva
         ax.fill_between(method_data['situation_depth'], method_data['height_precision'], color=color, alpha=0.6)
         ax.plot(method_data['situation_depth'], method_data['height_precision'], color=color, linestyle=':')
-        ax.set_title(f"{method}")
-        ax.set_xlabel('Depth')
-        ax.set_ylabel('Height Precision (%)')
+        ax.set_title(f"{method}", fontsize=16, fontweight='bold')
+        ax.tick_params(axis='both', which='major', labelsize=14)  # Aumenta el tamaño de las etiquetas
+        ax.set_xlabel('Depth', fontsize=14, fontweight='bold')
+        ax.set_ylabel('Height Precision (%)', fontsize=14, fontweight='bold')
         ax.grid(True)
-
-    fig.suptitle('Impact of Depth on Height Estimation Accuracy', fontsize=16, y=0.95)
+    
+    fig.suptitle('Impact of Depth on Height Estimation Accuracy', fontsize=20, fontweight='bold', y=0.95)
     plt.tight_layout()
     plt.show()
 
@@ -235,16 +276,119 @@ def calcular_promedio_height_precision(df, min_depth, max_depth, specific_method
     return avg_height_precision
 
 
+def plot_methods_with_ground_truth(filename):
+    # Leer los datos desde un archivo CSV
+    df = pd.read_csv(filename)
+    
+    # Asegurarse de que los datos son numéricos
+    df['height'] = pd.to_numeric(df['height'], errors='coerce')
+    df['true_height'] = pd.to_numeric(df['true_height'], errors='coerce')
+
+    # Ordenar por la columna 'situation'
+    df.sort_values('situation', inplace=True)
+
+    # Colores para los métodos y ground truth
+    colors = ['#ff8c00', '#ad3224', '#24ad4b', '#2467ad']  # Naranja, Rojo, Verde para los métodos, Azul para ground truth
+    methods = df['method'].unique()
+
+    # Crear una figura con subplots: uno por cada método
+    fig, axes = plt.subplots(nrows=1, ncols=len(methods), figsize=(18, 6), sharex=True, sharey=True)
+
+    if len(methods) == 1:  # Si solo hay un método, matplotlib no devuelve un array
+        axes = [axes]
+
+    # Plotear cada método en su propio subplot
+    for ax, method, color in zip(axes, methods, colors[:-1]):
+        method_data = df[df['method'] == method]
+        
+        # Crear un índice de muestra que se reinicia para cada método
+        method_data = method_data.reset_index(drop=True)
+        
+        ax.plot(method_data.index, method_data['height'], color=color, marker='o', linestyle='-', label=f'{method} Height')
+        ax.plot(method_data.index, df.loc[method_data.index, 'true_height'], color=colors[-1], marker='x', linestyle='--', label='Ground Truth Height')
+
+        # Configurar las etiquetas y título para cada subplot
+        ax.set_xlabel('Sample Index', fontsize=18, fontweight='bold')
+        ax.set_ylabel('Height (cm)', fontsize=18, fontweight='bold')
+        ax.set_title(f'{method} [CORRECTED]', fontsize=20, fontweight='bold')
+        ax.tick_params(axis='both', which='major', labelsize=16)  # Aumenta el tamaño de las etiquetas
+
+        # Configurar los límites del eje y
+        ax.set_ylim(50, 180)
+
+        # Mostrar la cuadrícula
+        ax.grid(True)
+
+        # Posicionar la leyenda en la esquina superior izquierda
+        ax.legend(loc='upper left')
+    
+    fig.suptitle('Height Estimation Variation at 300 (cm) Depth', fontsize=24, fontweight='bold', y=0.97)
+    # Ajustar el layout para evitar superposiciones
+    plt.tight_layout()
+
+    # Mostrar el gráfico
+    plt.show()
+
+
+def plot_depth_vs_height_with_ground_truth(filename):
+    # Leer los datos desde un archivo CSV
+    df = pd.read_csv(filename)
+    
+    # Asegurarse de que los datos son numéricos
+    df['height'] = pd.to_numeric(df['height'], errors='coerce')
+    df['true_depth'] = pd.to_numeric(df['true_depth'], errors='coerce')
+
+    # Colores para los métodos
+    colors = ['#ff8c00', '#ad3224', '#24ad4b']  # Naranja, Rojo, Verde para los métodos
+    methods = df['method'].unique()
+
+    # Crear una figura con subplots: uno por cada método
+    fig, axes = plt.subplots(nrows=1, ncols=len(methods), figsize=(18, 6), sharex=True, sharey=True)
+
+    if len(methods) == 1:  # Si solo hay un método, matplotlib no devuelve un array
+        axes = [axes]
+
+    # Plotear cada método en su propio subplot
+    for ax, method, color in zip(axes, methods, colors):
+        method_data = df[df['method'] == method]
+        ax.plot(method_data['true_depth'], method_data['height'], color=color, marker='o', linestyle='-', label=f'{method} Height')
+        
+        # Añadir la línea constante de ground truth height
+        ax.axhline(y=169, color='#2467ad', linestyle='--', label='Ground Truth Height (169 cm)')
+
+        # Configurar las etiquetas y título para cada subplot
+        ax.set_xlabel('Depth (cm)', fontsize=14, fontweight='bold')
+        ax.set_ylabel('Height (cm)', fontsize=14, fontweight='bold')
+        ax.set_title(f'{method} [CORRECTED]', fontsize=16, fontweight='bold')
+
+        # Configurar los límites del eje y
+        ax.set_ylim(50, 200)
+
+        # Mostrar la cuadrícula
+        ax.grid(True)
+
+        # Posicionar la leyenda en la esquina superior izquierda
+        ax.legend(loc='upper left')
+
+    fig.suptitle('Variation of the same estimated height when the depth varies', fontsize=20, fontweight='bold', y=0.97)
+    # Ajustar el layout para evitar superposiciones
+    plt.tight_layout()
+
+    # Mostrar el gráfico
+    plt.show()
+
+
+
 if __name__ == "__main__":
     method = "WLS-SGBM"
     # #Suponiendo que tu archivo CSV se llama 'data.csv' y está en el mismo directorio que este script
-    # filename = f"./datasets/data/estable/DEPTH/NORM-{method}_DEPTH.csv"
+    # filename = f"./datasets/data/estable/HEIGHT-WITH-STATIC-DEPTH/NO-NORM-{method}_HEIGHT.csv"
     # dataset = read_dataset(filename)
     # # Aplicar la función para crear la nueva columna
     # dataset['true_depth'] = dataset.apply(extract_true_depth, axis=1)
 
     # print(dataset)
-    # dataset.to_csv(f'./datasets/data/estable/CLEANED-DEPTH/CLEANED-NORM-{method}_DEPTH.csv', index=False)
+    # dataset.to_csv(f'./datasets/data/estable/CLEANED-HEIGHT-WITH-STATIC-DEPTH/CLEANED-NO-NORM-{method}_HEIGHT.csv', index=False)
     # print("DONE")
 
 
@@ -267,13 +411,14 @@ if __name__ == "__main__":
 
 
     # GRAFICOS
-    # filename = f"./datasets/data/estable/CLEANED-HEIGHT/CLEANED-NORM-{method}_HEIGHT.csv"
+    # filename = f"./datasets/data/estable/CLEANED-HEIGHT-WITH-STATIC-DEPTH/CLEANED-NO-NORM-{method}_HEIGHT.csv"
     # # filename_excel = './datasets/data/estable/EXCEL/NO-NORM-CLEANED-WLS-SGBM_FLEXOMETRO.xlsx'
     
     # plot_depth_time_series(filename)
-    # csv_to_excel(filename, filename_excel)
+    # # csv_to_excel(filename, filename_excel)
     # convert_csv_to_excel("./datasets/data/estable", "./datasets/data/estable_excel")
 
+    # plot_methods_with_ground_truth("./datasets/data/estable/POSTER/HEIGHT.csv")
 
 
 
@@ -294,10 +439,10 @@ if __name__ == "__main__":
     df = pd.read_csv('./datasets/data/estable/EXTRA/EXTRA.csv')
 
     # Llamar a la función para plotear
-    #plot_precision_by_method(df)
+    plot_precision_by_method(df)
 
 
-    # promedio = calcular_promedio_height_precision(df, 300, 400, 'RAFT-STEREO')
+    # promedio = calcular_promedio_height_precision(df, 200, 400, 'RAFT-STEREO')
 
 
 

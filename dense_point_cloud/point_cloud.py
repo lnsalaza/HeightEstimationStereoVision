@@ -420,4 +420,3 @@ def estimate_height_from_point_cloud(point_cloud: np.array, k: int = 5, threshol
     except ValueError as ve:
         print(f"Error al calcular el centroide: {ve}")
         return None, None
-

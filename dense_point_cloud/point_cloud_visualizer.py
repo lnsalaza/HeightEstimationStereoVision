@@ -1,6 +1,8 @@
 import open3d as o3d
 import numpy as np
 from sklearn.cluster import DBSCAN
+
+
 # def visualize_sparse_point_cloud(pcd_file, eps=100, min_samples=5000):
 
 #     # Leer la nube de puntos
@@ -49,6 +51,58 @@ from sklearn.cluster import DBSCAN
 
 #     # Destruir la ventana del visualizador
 #     viewer.destroy_window()
+
+
+
+# Clase encargada de la normalizacion estandar de las nubes de puntos
+
+class PointCloudScaler:
+    def __init__(self, reference_point, scale_factor):
+        self.reference_point = np.array(reference_point)
+        self.scale_factor = scale_factor
+
+    def calculate_scaled_positions(self, points):
+        # Restar el punto de referencia a todos los puntos
+        shifted_points = points - self.reference_point
+        
+        # Escalar los puntos
+        scaled_points = self.scale_factor * shifted_points
+        
+        # Volver a mover los puntos al sistema de referencia original
+        new_positions = scaled_points + self.reference_point
+        
+        return new_positions
+
+    def scale_cloud(self, points):
+        # Procesa todos los puntos sin dividirlos en trozos ni usar procesamiento paralelo
+        new_positions = self.calculate_scaled_positions(points)
+        return new_positions
+
+def correct_depth_o3d(points, alpha=0.5):
+    """
+    Aplica una corrección de profundidad a una nube de puntos 3D numpy array.
+    
+    :param points: Numpy array de puntos 3D
+    :param alpha: Parámetro de la transformación de potencia (0 < alpha < 1)
+    :return: Numpy array de puntos 3D corregidos
+    """
+    X, Y, Z = points[:, 0], points[:, 1], points[:, 2]
+    Z_safe = np.where(Z == 0, np.finfo(float).eps, Z)
+    Z_corrected = Z_safe ** alpha
+    X_corrected = X * (Z_corrected / Z_safe)
+    Y_corrected = Y * (Z_corrected / Z_safe)
+    corrected_points = np.vstack((X_corrected, Y_corrected, (0.6947802265318861*Z_corrected) + -14.393348239171985)).T
+    return corrected_points
+
+def process_numpy_point_cloud(points_np, reference_point=[0, 0, 0], scale_factor=1, alpha=1):
+    # Escalar la nube de puntos
+    scaler = PointCloudScaler(reference_point=reference_point, scale_factor=scale_factor)
+    scaled_points_np = scaler.scale_cloud(points_np)
+    
+    # Aplicar corrección de profundidad
+    corrected_points_np = correct_depth_o3d(scaled_points_np, alpha)
+    
+    return scaled_points_np
 
 def visualize_sparse_point_cloud(pcd_file, eps=500, min_samples=10):
     # Leer la nube de puntos
@@ -144,33 +198,40 @@ def create_mark_lines(width=200, height=40, depth=1000, interval=100):
 
 
 def visualize_dense_point_cloud(pcd_file):
-    
-    
-    mark_lines = create_mark_lines(width=1000, height=300, depth=1600, interval=100)
+    # Crear las líneas de referencia
+    # mark_lines = create_mark_lines(width=1600, height=600, depth=3000, interval=100)
+    mark_lines = create_mark_lines(width=int(1600*0.280005), height=int(600*0.280005), depth=int(3000*0.280005), interval=int(100*0.280005))
     # Leer la nube de puntos densa
     pcd = o3d.io.read_point_cloud(pcd_file)
-    # # ESCALADO BETA
-    # scale_factor = 1.0
-    # scaling_matrix = np.eye(4)
-    # scaling_matrix[:3, :3] *= scale_factor
 
-    # pcd = pcd.transform(scaling_matrix)
+    # Convertir a un array numpy para procesamiento
+    
+    points_np = np.asarray(pcd.points)
+    processed_points_np = process_numpy_point_cloud(points_np)
+    # Procesar la nube de puntos numpy
 
+
+    # Crear una nueva nube de puntos Open3D a partir del array numpy procesado
+    processed_pcd = o3d.geometry.PointCloud()
+    processed_pcd.points = o3d.utility.Vector3dVector(processed_points_np)
+
+    # Definir el rango de Z para el recorte (opcional, no utilizado actualmente)
     z_min, z_max = 0, 1000000
     bounding_box = o3d.geometry.AxisAlignedBoundingBox(min_bound=(-float('inf'), -float('inf'), z_min), max_bound=(float('inf'), float('inf'), z_max))
-    cropped_pcd = pcd.crop(bounding_box)
-
+    
+    # Crear el marco de coordenadas en el origen
     origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10, origin=[0,0,0])
 
     # Crear el visualizador
     viewer = o3d.visualization.Visualizer()
     viewer.create_window()
     
-    # Agregar la geometría
-    #viewer.add_geometry(cropped_pcd)
-    viewer.add_geometry(pcd)
-    viewer.add_geometry(origin)
-    viewer.add_geometry(mark_lines)
+    # Agregar las geometrías al visualizador
+    # viewer.add_geometry(pcd)  # Nube de puntos original
+    viewer.add_geometry(processed_pcd)  # Nube de puntos procesada
+    viewer.add_geometry(origin)  # Marco de coordenadas
+    # viewer.add_geometry(mark_lines)  # Líneas de referencia
+    
     # Configurar opciones de renderizado
     opt = viewer.get_render_option()
     opt.point_size = 1
@@ -200,7 +261,7 @@ if __name__ == "__main__":
     situacion = "150_A"
     
     # filepath = f"../point_clouds/{config}/{mask}_disparity/{config}_{situacion}"
-    filepath = "../../tmp/TESTING2/WLS"
+    filepath = "../../tmp/point_clouds/intermediate_point_cloud"
     # filepath = "../point_clouds/SGBM/keypoints_disparity/SGBM_150_A"
     # filepath = "../point_clouds/DEMO/densaDEMO"
     # Visualización de la nube de puntos densa
