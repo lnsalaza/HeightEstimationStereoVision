@@ -32,8 +32,8 @@ app.add_middleware(
 
 
 
-@app.post("/upload_calibration/")
-async def upload_calibration(file: UploadFile = File(...), profile_name: str = Form(...)):
+@app.post("/app_profile/")
+async def app_profile(file: UploadFile = File(...), profile_name: str = Form(...)):
     """
     Endpoint para subir un archivo JSON de calibración y generar el perfil de calibración correspondiente.
 
@@ -104,7 +104,26 @@ def get_profiles():
         return profiles
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
+
+@app.get("/get_profile/{profile_name}", response_model=Optional[Dict])
+def get_profile(profile_name: str):
+    """
+    Obtiene el JSON de un perfil específico basado en el nombre del perfil.
+
+    Args:
+        profile_name (str): Nombre del perfil a obtener.
+
+    Returns:
+        dict: JSON del perfil si se encuentra, de lo contrario se devuelve un error 404.
+
+    Raises:
+        HTTPException: Si el perfil no se encuentra, se devuelve un error 404.
+    """
+    profile = load_profile(profile_name)
+    if profile is None:
+        raise HTTPException(status_code=404, detail=f"Perfil {profile_name} no encontrado.")
+    return profile
+
 @app.delete("/delete_profile/{profile_name}")
 def delete_profile_endpoint(profile_name: str):
     """
@@ -120,7 +139,6 @@ def delete_profile_endpoint(profile_name: str):
     if not success:
         raise HTTPException(status_code=404, detail="Profile not found or error deleting files")
     return {"message": f"Profile {profile_name} deleted successfully"}
-
 
 
 @app.post("/generate_point_cloud/dense/")

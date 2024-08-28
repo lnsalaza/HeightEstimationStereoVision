@@ -45,6 +45,7 @@ def generate_profile_data(calibration_data: Dict, profile_name: str) -> Dict:
     # Estructura del perfil a devolver
     return {
         "profile_name": profile_name,
+        "resolution":calibration_data['imageSize'],
         "camera_params": {
             "fx": fx,
             "fy": fy,
@@ -169,3 +170,4 @@ def load_profile(profile_name: str) -> Optional[Dict]:
     with open(profile_path, 'r') as file:
         profile = json.load(file)
     return profile
+
