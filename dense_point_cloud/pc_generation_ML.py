@@ -5,9 +5,6 @@ import numpy as np
 import open3d as o3d
 from sklearn.cluster import DBSCAN
 import dense_point_cloud.keypoint_extraction as kp
-# Aplicar el filtro bilateral
-sigma = 1.5  # Parámetro de sigma utilizado para el filtrado WLS.
-lmbda = 8000.0  # Parámetro lambda usado en el filtrado WLS.
 
 def save_image(path, image, image_name, grayscale=False):
     if not os.path.exists(path):

@@ -387,6 +387,56 @@ async def estimate_height_from_cloud(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al procesar la nube de puntos: {str(e)}")
 
+@app.post("/generate_point_cloud/nodense/features/")
+async def generate_point_cloud_with_features(
+    img_left: UploadFile = File(...),
+    img_right: UploadFile = File(...),
+    profile_name: str = Form(...),
+    method: str = Form(...),
+    use_max_disparity: bool = Form(default=True),
+    normalize: bool = Form(default=True)
+):
+    """
+    Genera nubes de puntos, keypoints 3D y extrae características para cada persona detectada a partir de imágenes estéreo.
+
+    Args:
+        img_left (UploadFile): Imagen del lado izquierdo como archivo subido.
+        img_right (UploadFile): Imagen del lado derecho como archivo subido.
+        profile_name (str): Nombre del perfil de calibración a utilizar.
+        method (str): Método de disparidad a utilizar ('SGBM', 'WLS-SGBM', 'RAFT', 'SELECTIVE').
+        use_max_disparity (bool): Indica si activar o desactivar el uso de la disparidad máxima para optimizar la nube de puntos.
+        normalize (bool): Indica si se debe normalizar la nube de puntos.
+
+    Returns:
+        dict: Contiene las nubes de puntos, colores, keypoints 3D y características extraídas para cada persona detectada.
+    
+    Raises:
+        HTTPException: Si hay un error en el procesamiento.
+    """
+    try:
+        # Leer imágenes cargadas
+        left_image = await read_image_from_upload(img_left)
+        right_image = await read_image_from_upload(img_right)
+
+        # Cargar la configuración del perfil
+        profile = load_profile(profile_name)
+        if not profile:
+            raise HTTPException(status_code=404, detail=f"Profile {profile_name} not found")
+
+        # Generar nubes de puntos, colores, keypoints y extraer características
+        point_clouds, colors, keypoints, features = generate_filtered_point_cloud_with_features(
+            left_image, right_image, profile, method, use_roi=False, use_max_disparity=use_max_disparity, normalize=normalize
+        )
+        
+        return {    
+            "profile_used": profile_name,
+            "method_used": method,
+            "features": features
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
 @app.post("/download_point_cloud/dense/")
 async def download_converted_point_cloud(format: str):
     """

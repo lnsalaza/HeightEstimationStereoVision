@@ -180,6 +180,73 @@ def test_individual_filtered_point_clouds(img_left, img_right, config, method, u
         viewer.clear_geometries()
         viewer.destroy_window()
 
+def test_filtered_point_cloud_with_features(img_left, img_right, config, method, use_roi, use_max_disparity, normalized):
+    """
+    Función de testing para generar nubes de puntos filtradas individuales junto con keypoints 3D y características, y luego visualizarlas.
+
+    Args:
+        img_left (np.array): Imagen del lado izquierdo como array de numpy.
+        img_right (np.array): Imagen del lado derecho como array de numpy.
+        config (dict): Diccionario de configuración del perfil.
+        method (str): Método de disparidad (SGBM, RAFT, etc.).
+        use_roi (bool): Indica si se usa una región de interés.
+        use_max_disparity (bool): Indica si se utiliza la disparidad máxima.
+        normalized (bool): Indica si la nube de puntos se normaliza.
+    """
+    # Generar nubes de puntos, colores, keypoints 3D y características
+    point_cloud_list, color_list, keypoints3d, features = generate_filtered_point_cloud_with_features(
+        img_left, img_right, config, method, use_roi, use_max_disparity, normalized
+    )
+
+    # Convertir las nubes de puntos individuales a formato XYZRGB
+    convert_individual_point_clouds_format(output_format='xyzrgb')
+
+    # Visualizar cada nube de puntos generada para los objetos detectados
+    for i, (point_cloud, colors) in enumerate(zip(point_cloud_list, color_list)):
+        # Crear objeto PointCloud de Open3D
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(point_cloud)
+        pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)  # Normalizar los colores a [0, 1]
+
+        # Crear la ventana de visualización
+        viewer = o3d.visualization.Visualizer()
+        viewer.create_window(window_name=f"3D Point Cloud for Object {i+1}", width=800, height=600)
+
+        # Añadir la nube de puntos a la ventana de visualización
+        viewer.add_geometry(pcd)
+
+        # Configurar opciones de renderizado
+        opt = viewer.get_render_option()
+        if not use_roi:
+            opt.point_size = 5  # Tamaño de puntos sin ROI
+        else:
+            opt.point_size = 1  # Tamaño de puntos con ROI
+
+        # Ejecutar la visualización
+        viewer.run()
+        viewer.clear_geometries()
+        viewer.destroy_window()
+
+    # Visualizar los keypoints 3D generados
+    for i, (keypoints, colors) in enumerate(zip(keypoints3d, color_list)):
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(keypoints)
+        pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)
+
+        viewer = o3d.visualization.Visualizer()
+        viewer.create_window(window_name=f"3D Keypoints for Object {i+1}", width=800, height=600)
+        viewer.add_geometry(pcd)
+
+        opt = viewer.get_render_option()
+        opt.point_size = 5 if not use_roi else 1
+
+        viewer.run()
+        viewer.clear_geometries()
+        viewer.destroy_window()
+
+    # Mostrar características extraídas
+    for idx, feature in enumerate(features):
+        print(f"Features for Person {idx+1}: {feature}")
 
 def test_individual_filtered_point_cloud_with_centroid(img_left, img_right, config, method, use_roi, use_max_disparity, normalized):
     # Generar listas de nubes de puntos y colores para cada objeto detectado
@@ -276,8 +343,8 @@ if __name__ == "__main__":
     # img_left = cv2.imread("images/laser/groundTruth/298 y 604/15_22_21_07_06_2024_IMG_LEFT.jpg")
     # img_right = cv2.imread("images/laser/groundTruth/298 y 604/15_22_21_07_06_2024_IMG_RIGHT.jpg")
 
-    img_left = cv2.imread("../originals/prof_alturas/300_z/174/15_00_11_19_08_2024_IMG_LEFT.jpg")
-    img_right = cv2.imread("../originals/prof_alturas/300_z/174/15_00_11_19_08_2024_IMG_RIGHT.jpg")
+    # img_left = cv2.imread("../originals/laser/groundTruth/790/15_30_41_07_06_2024_IMG_LEFT.jpg")
+    # img_right = cv2.imread("../originals/laser/groundTruth/790/15_30_41_07_06_2024_IMG_RIGHT.jpg")
 
     # img_left = cv2.imread("images/distances/300/14_06_19_13_05_2024_IMG_LEFT.jpg")
     # img_right = cv2.imread("images/distances/300/14_06_19_13_05_2024_IMG_RIGHT.jpg")
@@ -301,6 +368,9 @@ if __name__ == "__main__":
     # img_left = cv2.imread("../originals/heights/157/16_13_54_19_07_2024_IMG_LEFT.jpg")
     # img_right = cv2.imread("../originals/heights/157/16_13_54_19_07_2024_IMG_RIGHT.jpg")
 
+    img_left = cv2.imread("../originals/prof_alturas/300_z/15_00_39_19_08_2024_IMG_LEFT.jpg")
+    img_right = cv2.imread("../originals/prof_alturas/300_z/15_00_39_19_08_2024_IMG_RIGHT.jpg")
+
     if img_left is None or img_right is None:
         raise FileNotFoundError("Una o ambas imágenes no pudieron ser cargadas. Verifique las rutas.")
 
@@ -312,7 +382,7 @@ if __name__ == "__main__":
 
     img_left, img_right = rectify_images(img_left, img_right, config=config['profile_name'])
     # Asumiendo que queremos usar el método SGBM, ajusta si es WLS-SGBM, RAFT o SELECTIVE según tu configuración
-    method = 'WLS-SGBM'
+    method = 'RAFT'
 
     # convert_to_gray("./raft_demo_output/output_1.png","./raft_demo_output/gray_output_1.png")
     # convert_to_gray("./seletive_demo_output/output_1.png","./seletive_demo_output/gray_output_1.png")
@@ -337,9 +407,9 @@ if __name__ == "__main__":
     #test_individual_filtered_point_cloud_with_centroid(img_left, img_right, config, method, use_roi=False, use_max_disparity=True)
 
 
-    # #TEST CALCULO DE ALTURAS
-    test_estimate_height_from_point_cloud(img_left, img_right, config, method, use_roi=False, use_max_disparity=True, normalized=True)
-    print("")
+    # # #TEST CALCULO DE ALTURAS
+    # test_estimate_height_from_point_cloud(img_left, img_right, config, method, use_roi=False, use_max_disparity=True, normalized=True)
+    # print("")
     #points, colors = generate_combined_filtered_point_cloud(img_left, img_right, config, method, False, True)
     #points, colors = generate_dense_point_cloud(img_left, img_right, config, method, True, True)
     # Seleccionar un subconjunto aleatorio de puntos, incluyendo el origen
@@ -371,3 +441,5 @@ if __name__ == "__main__":
     # print("TESTING IS ENDING...")
 
 
+    #TEST FEATURE EXTRACTION
+    test_filtered_point_cloud_with_features(img_left, img_right, config, method="RAFT", use_roi=False, use_max_disparity=True, normalized=True)

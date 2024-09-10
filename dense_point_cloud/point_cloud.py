@@ -12,6 +12,7 @@ from dense_point_cloud.util import prepare_point_cloud, prepare_individual_point
 from dense_point_cloud.Selective_IGEV.bridge_selective import get_SELECTIVE_disparity_map
 from dense_point_cloud.RAFTStereo.bridge_raft import get_RAFT_disparity_map
 from calibration.rectification import load_stereo_maps 
+from dense_point_cloud.features_script import *
 
 from scipy.spatial import cKDTree
 from scipy.spatial import distance_matrix
@@ -296,7 +297,73 @@ def generate_individual_filtered_point_clouds(img_left: np.array, img_right: np.
         prepare_individual_point_clouds(point_cloud_list, color_list, keypoints3d_list)
         return point_cloud_list, color_list, keypoints3d_list
 
+def generate_filtered_point_cloud_with_features(
+    img_left: np.array, 
+    img_right: np.array, 
+    config: dict, 
+    method: str, 
+    use_roi: bool, 
+    use_max_disparity: bool, 
+    normalize: bool = True
+):
+    """
+    Genera listas separadas de nubes de puntos, colores, keypoints 3D, y extrae características para cada objeto detectado.
+    
+    Args:
+        img_left (np.array): Imagen del lado izquierdo como array de numpy.
+        img_right (np.array): Imagen del lado derecho como array de numpy.
+        config (dict): Diccionario de configuración para un perfil específico.
+        method (str): Método de disparidad a utilizar ('SGBM', 'WLS-SGBM', 'RAFT', 'SELECTIVE').
+        use_roi (bool): Indica si aplicar una Región de Interés (ROI) durante el procesamiento.
+        use_max_disparity (bool): Indica si utilizar la disparidad máxima para optimizar la nube de puntos.
+        normalize (bool): Indica si normalizar la nube de puntos a una escala de unidad estándar.
 
+    Returns:
+        Tuple of lists: Listas de nubes de puntos, colores, keypoints 3D, y características extraídas para cada persona.
+    """
+    # Generar el mapa de disparidad utilizando la función adecuada
+    disparity_map = compute_disparity(img_left, img_right, config, method)
+
+    # Acceder a parámetros relevantes desde la configuración
+    Q = np.array(config['camera_params']['Q_matrix'])
+    fx = config['camera_params']['fx']
+    fy = config['camera_params']['fy']
+    cx1 = config['camera_params']['cx1']
+    cx2 = config['camera_params']['cx2']
+    cy = config['camera_params']['cy']
+    baseline = config['camera_params']['baseline']
+
+    # Generar nubes de puntos filtradas para cada objeto detectado
+    if method == 'SGBM' or method == 'WLS-SGBM':
+        point_cloud_list, color_list, eps, min_samples, keypoints3d_list = pcGen.generate_filtered_point_cloud(
+            img_left, disparity_map, Q, "matlab", use_roi, use_max_disparity
+        )
+        scale_factor = 3.45
+    else:
+        point_cloud_list, color_list, eps, min_samples, keypoints3d_list = pcGen_ML.generate_filtered_point_cloud(
+            img_left, disparity_map, fx, fy, cx1, cx2, cy, baseline, "matlab", use_roi, use_max_disparity
+        )
+        scale_factor = 0.280005
+
+    # Normalizar las nubes de puntos si se solicita
+    if normalize:
+        normalized_point_cloud_list = [process_numpy_point_cloud(cloud, scale_factor=scale_factor, alpha=1.0005119) for cloud in point_cloud_list]
+        normalized_keypoints_list = [process_numpy_point_cloud(kps, scale_factor=scale_factor, alpha=1.0005119) for kps in keypoints3d_list]
+        
+        prepare_individual_point_clouds(normalized_point_cloud_list, color_list, normalized_keypoints_list)
+
+        # Extraer características usando la función get_features
+        features = get_features(normalized_keypoints_list)
+
+        return normalized_point_cloud_list, color_list, normalized_keypoints_list, features
+
+    else:
+        prepare_individual_point_clouds(point_cloud_list, color_list, keypoints3d_list)
+
+        # Extraer características usando la función get_features
+        features = get_features(keypoints3d_list)
+
+        return point_cloud_list, color_list, keypoints3d_list, features
 
 def compute_centroid(points, k=5, threshold_factor=1.0):
     if len(points) < k + 1:
@@ -383,6 +450,46 @@ def compute_centroids(points, k=5, threshold_factor=1.0, eps_factor=2, min_sampl
         centroids.append(centroid)
 
     return centroids
+
+def get_features(keypoints):
+    list_heights = []
+    list_tronco_normal = []
+    list_centroides = []
+    list_head_normal = []
+    list_is_centroid_to_nariz = []
+    centroide = np.array([])
+    avg_normal = np.array([0, 0, 0])
+
+    avg_normal_head = np.array([0, 0, 0])
+    list_union_centroids = []
+    avg_head_centroid = np.array([0, 0, 0])
+    character = ""
+    confianza = 0
+
+    # Get Height
+    for person in keypoints:
+        # funcion de altura estimate_height_from_point_cloud
+        estimated_height, _centroid = estimate_height_from_point_cloud(point_cloud=person, m_initial=100)
+        list_heights.append(estimated_height)
+
+    kps_filtered = np.array(keypoints)[:, [0, 3, 4, 5, 6, 11, 12], :]
+
+    # Get each point of person, all person
+    list_points_persons, list_ponits_bodies_nofiltered = get_each_point_of_person(kps_filtered)
+
+    # Get centroid and normal
+    get_centroid_and_normal(list_points_persons, list_ponits_bodies_nofiltered, list_centroides, list_tronco_normal, list_head_normal, list_is_centroid_to_nariz)
+
+    if len(list_centroides) > 0:
+        # Centroide grupal (centroide del grupo)
+        centroide =  np.mean(np.array(list_centroides), axis=0)
+        ## Vector promedio del tronco
+        avg_normal = average_normals(list_tronco_normal) 
+        if avg_normal is not None:
+            avg_normal_head, list_union_centroids, avg_head_centroid, character, _confianza = get_group_features(list_centroides, centroide, avg_normal, list_head_normal, list_points_persons)
+
+    return get_structure_data(keypoints, character, list_tronco_normal, list_head_normal, avg_normal, avg_normal_head, list_centroides, list_union_centroids, centroide, avg_head_centroid, list_is_centroid_to_nariz, list_heights)
+
 
 
 def estimate_height_from_point_cloud(point_cloud: np.array, k: int = 5, threshold_factor: float = 1.0, m_initial: float = 50.0):
