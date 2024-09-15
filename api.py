@@ -422,10 +422,12 @@ async def generate_point_cloud_with_features(
         profile = load_profile(profile_name)
         if not profile:
             raise HTTPException(status_code=404, detail=f"Profile {profile_name} not found")
+        
+        left_image_rect, right_image_rect = rectify_images(left_image, right_image, profile_name)
 
         # Generar nubes de puntos, colores, keypoints y extraer características
         point_clouds, colors, keypoints, features = generate_filtered_point_cloud_with_features(
-            left_image, right_image, profile, method, use_roi=False, use_max_disparity=use_max_disparity, normalize=normalize
+            left_image_rect, right_image_rect, profile, method, use_roi=False, use_max_disparity=use_max_disparity, normalize=normalize
         )
         
         return {    
