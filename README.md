@@ -10,114 +10,105 @@ This project focuses on stereo vision to generate dense depth maps and segment p
 - **3D Projection**: Perform 2D to 3D projection using YOLO results as a mask.
 - **Dense to Sparse Cloud Conversion**: Convert dense clouds to sparse clouds focusing on key points and ROIs.
 - **Depth and Height Measurement**: Calculate depth and height of detected people using their key points or entire ROI.
+- **API Integration**: Expose functionalities via a FastAPI for easier access and testing.
+- **Orchestrator System**: A dynamic system that allows switching between tasks such as dense cloud generation, height estimation, or feature extraction in real-time.
 
 ## Installation
 
 1. Clone the repository:
-    ```
+    ```bash
     git clone https://github.com/lnsalaza/HeightEstimationStereoVision.git
     cd HeightEstimationStereoVision
     ```
 
 2. Install the required packages:
-    ```
+    ```bash
     pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
     pip install -r requirements.txt
     ```
 
 ## Usage
 
+### Running the API
+
+You can run the FastAPI server to expose the various functionalities of this project.
+
+1. To start the API server:
+    ```bash
+    uvicorn api:app --reload
+    ```
+
+2. Once started, you can interact with the API by navigating to the following URL:
+    ```
+    http://127.0.0.1:8000/docs
+    ```
+    This will bring up the Swagger documentation where you can test the different API endpoints.
+
+3. Some example API endpoints include:
+   - `/generate_point_cloud/dense/`: Generate a dense 3D point cloud from stereo images.
+   - `/generate_point_cloud/nodense/height_estimation/`: Estimate the height of a person detected in the point cloud.
+   - `/get_profiles/`: Retrieve a list of all calibration profiles available.
+
+### Running the Demo with Orchestrator and YOLOv8
+
+You can use the **orchestrator** to dynamically switch between tasks such as height estimation, dense cloud generation, or feature extraction while using live images from a webcam.
+
+1. To run the demo:
+    ```bash
+    python demo.py
+    ```
+
+2. This demo utilizes YOLOv8 to detect persons via webcam and sends the detected images to the orchestrator for height estimation or other processes, depending on the requirements. You can switch the task in real-time.
+
+### Using the Orchestrator
+
+The orchestrator is a system that allows switching between different operations dynamically, such as:
+
+- **Dense point cloud generation**.
+- **Sparse point cloud generation**.
+- **Feature extraction**.
+- **Height estimation**.
+
+#### Example: Using the Orchestrator in Real-Time
+```python
+from orchestrator.orchestrator import Orchestrator
+
+# Initialize with images and the desired operation (e.g., 'height')
+orchestrator = Orchestrator(img_left=left_image_array, img_right=right_image_array, requirement="height")
+
+# Set new images dynamically
+orchestrator.set_images(new_left_image, new_right_image)
+
+# Execute the task (e.g., estimating height)
+result = orchestrator.execute()
+print(f"Result: {result}")
+```
+
+### YOLOv8 Detection with Orchestrator
+
+The `demo.py` script integrates YOLOv8 for person detection with the orchestrator. After detecting a person, the system can estimate the person's height using the stereo vision setup.
+
+```python
+python demo.py
+```
+
+The demo will:
+
+- Detect people using YOLOv8.
+- Estimate their height by processing the stereo images using the orchestrator.
+- Display the result in the terminal while continuing the video feed.
+
 ### Calibration
 
 1. **Calibrate Images**:
-    ```
+    ```bash
     python calibration.py --json ../config_files/matlab_1/stereoParameters.json --xml ../config_files/matlab_1/newStereoMap.xml --img_left ../images/originals/IMG_LEFT.jpg --img_right ../images/originals/IMG_RIGHT.jpg
     ```
 
 2. **Rectify Images/Videos**:
-    ```
+    ```bash
     python rectification.py --input_type image --input_images_folder ../images/laser/groundTruth --output_images_folder ../images/calibration_results/matlab_1 --xml ../config_files/matlab_1/newStereoMap.xml
     ```
-
-### Depth Map and Point Cloud Generation
-
-The following examples demonstrate how to use the provided functions to generate disparity maps and point clouds. These examples are included in the script `testing.py`:
-
-#### Example: Test Disparity Map
-```python
-def test_disparity_map(img_left, img_right, config, method):
-    disparity_map = compute_disparity(img_left, img_right, config, method)
-    plt.imshow(disparity_map, cmap='jet')
-    plt.colorbar()
-    plt.title('Disparity Map')
-    plt.show()
-
-# Usage
-test_disparity_map(img_left, img_right, config, method='SELECTIVE')
-```
-
-#### Example: Test Dense Point Cloud
-```python
-def test_point_cloud(img_left, img_right, config, method, use_max_disparity):
-    point_cloud, colors = generate_dense_point_cloud(img_left, img_right, config, method, use_max_disparity)
-    pcGen.save_point_cloud(point_cloud, colors, "./point_clouds/DEMO/densaDEMO")
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(point_cloud)
-    pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)
-    viewer = o3d.visualization.Visualizer()
-    viewer.create_window(window_name="3D Point Cloud", width=800, height=600)
-    viewer.add_geometry(pcd)
-    viewer.get_render_option().point_size = 1
-    viewer.run()
-    viewer.destroy_window()
-
-# Usage
-test_point_cloud(img_left, img_right, config, method='RAFT', use_max_disparity=False)
-```
-
-#### Example: Test Filtered Point Cloud
-```python
-def test_filtered_point_cloud(img_left, img_right, config, method, use_roi, use_max_disparity):
-    point_cloud, colors = generate_combined_filtered_point_cloud(img_left, img_right, config, method, use_roi, use_max_disparity)
-    pcGen.save_point_cloud(point_cloud, colors, "./point_clouds/DEMO/NOdensaDEMO")
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(point_cloud)
-    pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)
-    viewer = o3d.visualization.Visualizer()
-    viewer.create_window(window_name="Filtered 3D Point Cloud", width=800, height=600)
-    viewer.add_geometry(pcd)
-    viewer.get_render_option().point_size = 5 if not use_roi else 1
-    viewer.run()
-    viewer.destroy_window()
-
-# Usage
-test_filtered_point_cloud(img_left, img_right, config, method='SELECTIVE', use_roi=False, use_max_disparity=True)
-```
-
-#### Example: Test Filtered Point Cloud with Centroids
-```python
-def test_filtered_point_cloud_with_centroids(img_left, img_right, config, method, use_roi, use_max_disparity):
-    point_cloud, colors = generate_combined_filtered_point_cloud(img_left, img_right, config, method, use_roi, use_max_disparity)
-    pcGen.save_point_cloud(point_cloud, colors, "./point_clouds/DEMO/NOdensaDEMO")
-    pcd = o3d.geometry.PointCloud()
-    pcd.points = o3d.utility.Vector3dVector(point_cloud)
-    pcd.colors = o3d.utility.Vector3dVector(colors / 255.0)
-    centroids = compute_centroids(point_cloud)
-    viewer = o3d.visualization.Visualizer()
-    viewer.create_window(window_name="Filtered 3D Point Cloud with Centroids", width=800, height=600)
-    viewer.add_geometry(pcd)
-    for centroid in centroids:
-        sphere = o3d.geometry.TriangleMesh.create_sphere(radius=5)
-        sphere.translate(centroid)
-        sphere.paint_uniform_color([1.0, 0.0, 0.0])
-        viewer.add_geometry(sphere)
-    viewer.get_render_option().point_size = 5 if not use_roi else 1
-    viewer.run()
-    viewer.destroy_window()
-
-# Usage
-test_filtered_point_cloud_with_centroids(img_left, img_right, config, method='RAFT', use_roi=False, use_max_disparity=True)
-```
 
 ## Contributing
 
@@ -130,4 +121,3 @@ This project does not currently have an official license.
 ## Contact
 
 For any questions or suggestions, feel free to open an issue or contact my colleague or me directly.
-
