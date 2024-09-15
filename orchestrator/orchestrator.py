@@ -1,16 +1,17 @@
 import sys
 import os
-
+import cv2
+import numpy as np
 # Agregar la ruta raíz del proyecto
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from dense_point_cloud.point_cloud import generate_dense_point_cloud, generate_combined_filtered_point_cloud, generate_individual_filtered_point_clouds, generate_filtered_point_cloud_with_features, estimate_height_from_point_cloud, rectify_images
-from dense_point_cloud.util import convert_point_cloud_format
+
 from typing import Optional
 from api_util.profile_management import *
 
 class Orchestrator:
-    def __init__(self, img_left, img_right, initial_requirement: str = "dense", profile_name: str = "default_profile", method: str = "SGBM", normalize: bool = True, use_max_disparity: bool = True):
+    def __init__(self, img_left: str, img_right: str, profile_name: str = "MATLAB", method: str = "SELECTIVE", normalize: bool = True, use_max_disparity: bool = True, requirement: str = "nodense"):
         """
         Inicializa el Orchestrator con las imágenes, requerimiento, perfil, método, y otros parámetros.
         
@@ -19,13 +20,13 @@ class Orchestrator:
             img_right: Imagen del lado derecho en formato array.
             initial_requirement: El requerimiento inicial ('dense', 'nodense', 'features', 'height').
             profile_name: El nombre del perfil de calibración a utilizar.
-            method: El método de disparidad a utilizar (por defecto 'SGBM').
+            method: El método de disparidad a utilizar (por defecto 'SELECTIVE').
             normalize: Si se normalizan las nubes de puntos (por defecto True).
             use_max_disparity: Si se utiliza la disparidad máxima (por defecto True).
         """
         self.img_left = img_left
         self.img_right = img_right
-        self.requirement = initial_requirement
+        self.requirement = requirement
         self.profile_name = profile_name  # Se puede cambiar el perfil en tiempo real
         self.method = method  # Método de disparidad (e.g., 'SGBM', 'RAFT', 'SELECTIVE')
         self.normalize = normalize  # Controla si se normaliza la nube de puntos
@@ -62,29 +63,36 @@ class Orchestrator:
         """
         Ejecuta el módulo correspondiente basado en el requerimiento actual.
         """
-        # Leer las imágenes
+        # Asegúrate de que las imágenes están en formato numpy array
+        if not isinstance(self.img_left, np.ndarray) or not isinstance(self.img_right, np.ndarray):
+            raise ValueError("Las imágenes de entrada no son arrays de numpy.")
+
         left_image = self.img_left
         right_image = self.img_right
 
         # Rectificar imágenes
         profile = load_profile(self.profile_name)
-        if not profile:
-            raise FileNotFoundError(f"Perfil {self.profile_name} no encontrado.")
-        
         left_image_rect, right_image_rect = rectify_images(left_image, right_image, self.profile_name)
 
         if self.requirement == "dense":
+            # Generar nube de puntos densa
             point_cloud, colors = generate_dense_point_cloud(left_image_rect, right_image_rect, profile, self.method, self.use_max_disparity, self.normalize)
             return point_cloud, colors
+
         elif self.requirement == "nodense":
+            # Generar nube de puntos filtrada
             point_cloud, colors = generate_combined_filtered_point_cloud(left_image_rect, right_image_rect, profile, self.method, False, self.use_max_disparity, self.normalize)
             return point_cloud, colors
+
         elif self.requirement == "features":
+            # Generar nubes individuales con características
             point_clouds, colors, keypoints, features = generate_filtered_point_cloud_with_features(
                 left_image_rect, right_image_rect, profile, self.method, False, self.use_max_disparity, self.normalize
             )
             return features
+
         elif self.requirement == "height":
+            # Generar nubes de puntos individuales y estimar altura
             point_clouds_list, colors_list, keypoints3d_list = generate_individual_filtered_point_clouds(
                 left_image_rect, right_image_rect, profile, self.method, False, self.use_max_disparity, self.normalize
             )
@@ -93,8 +101,10 @@ class Orchestrator:
                 height, centroid = estimate_height_from_point_cloud(point_cloud)
                 results.append({"height": height, "centroid": centroid})
             return results
+
         else:
             raise ValueError(f"Requerimiento desconocido: {self.requirement}")
+
 
 
 
