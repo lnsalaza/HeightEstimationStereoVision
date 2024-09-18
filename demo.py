@@ -8,6 +8,7 @@ from orchestrator.orchestrator import Orchestrator
 torch.cuda.set_device(0)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+altura = 0
 class HeightEstimatorThread(threading.Thread):
     def __init__(self, orchestrator, img_left, img_right):
         threading.Thread.__init__(self)
@@ -20,7 +21,8 @@ class HeightEstimatorThread(threading.Thread):
         print("Procesando altura en segundo plano...")
         result = self.orchestrator.execute()
         print(f"Resultado de altura: {result}")
-
+        altura = result[0]['height']
+        print(altura)
 
 def detect_person_with_orchestrator_webcam():
     # Inicializar la cámara
@@ -29,6 +31,9 @@ def detect_person_with_orchestrator_webcam():
     if not cap.isOpened():
         print("Error: No se pudo abrir la cámara.")
         return
+
+    # Inicializar el modelo YOLOv8
+    model = YOLO('yolov8n.pt').to(device)
 
     orchestrator = Orchestrator(img_left=None, img_right=None, profile_name="MATLAB", method="SELECTIVE", normalize=True, use_max_disparity=True, requirement="height")
     last_processed_time = 0  # Para evitar procesar en cada frame
@@ -43,13 +48,24 @@ def detect_person_with_orchestrator_webcam():
                 print("Error: No se pudo capturar el frame.")
                 break
 
-            # Mostrar el frame original
-            cv2.imshow('Webcam Feed', frame)
+            # Realizar la predicción con YOLO
+            results = model(frame, conf=0.8)
 
-            # Detectar personas en el frame (esto es opcional y depende de tu pipeline de detección)
-            result = detect_person_in_frame(frame)
+            # Dibujar las cajas de detección y probabilidades
+            for result in results:
+                for box in result.boxes:
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])  # Coordenadas de la caja
+                    conf = box.conf[0]  # Confianza de detección
 
-            if result:  # Si se detecta una persona
+                    # Dibujar la caja
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.putText(frame, f"Person {conf:.2f} - Height {altura}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+
+            # Mostrar el frame con las detecciones
+            cv2.imshow('YOLOv8 Person Detection', frame)
+
+            # Si se detecta una persona
+            if len(results[0].boxes) > 0:
                 current_time = time.time()
 
                 # Procesar cada 'processing_interval' segundos y solo si no hay otro hilo en ejecución
@@ -79,12 +95,6 @@ def detect_person_with_orchestrator_webcam():
     finally:
         cap.release()
         cv2.destroyAllWindows()
-
-
-def detect_person_in_frame(frame):
-    # Simular una detección de persona
-    return True
-
 
 if __name__ == "__main__":
     detect_person_with_orchestrator_webcam()
