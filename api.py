@@ -426,14 +426,15 @@ async def generate_point_cloud_with_features(
         left_image_rect, right_image_rect = rectify_images(left_image, right_image, profile_name)
 
         # Generar nubes de puntos, colores, keypoints y extraer características
-        point_clouds, colors, keypoints, features = generate_filtered_point_cloud_with_features(
+        point_clouds, colors, keypoints, features, max_coords = generate_filtered_point_cloud_with_features(
             left_image_rect, right_image_rect, profile, method, use_roi=False, use_max_disparity=use_max_disparity, normalize=normalize
         )
         
         return {    
             "profile_used": profile_name,
             "method_used": method,
-            "features": features
+            "features": features,
+            "max_coords": max_coords
         }
 
     except Exception as e:
