@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import open3d as o3d
 from scipy.spatial import KDTree
 from sklearn.cluster import DBSCAN
-from dense_point_cloud.util import prepare_point_cloud, prepare_individual_point_clouds, filter_points_by_optimal_range, get_Y_bounds
+from dense_point_cloud.util import prepare_point_cloud, prepare_individual_point_clouds, filter_points_by_optimal_range, get_Y_bounds, get_max_coordinates
 from dense_point_cloud.Selective_IGEV.bridge_selective import get_SELECTIVE_disparity_map
 from dense_point_cloud.RAFTStereo.bridge_raft import get_RAFT_disparity_map
 from calibration.rectification import load_stereo_maps 
@@ -352,18 +352,22 @@ def generate_filtered_point_cloud_with_features(
         
         prepare_individual_point_clouds(normalized_point_cloud_list, color_list, normalized_keypoints_list)
 
+        max_coords = get_max_coordinates(normalized_point_cloud_list)
+
         # Extraer características usando la función get_features
         features = get_features(normalized_keypoints_list)
 
-        return normalized_point_cloud_list, color_list, normalized_keypoints_list, features
+        return normalized_point_cloud_list, color_list, normalized_keypoints_list, features, max_coords
 
     else:
         prepare_individual_point_clouds(point_cloud_list, color_list, keypoints3d_list)
 
+        max_coords = get_max_coordinates(point_cloud_list)
+
         # Extraer características usando la función get_features
         features = get_features(keypoints3d_list)
 
-        return point_cloud_list, color_list, keypoints3d_list, features
+        return point_cloud_list, color_list, keypoints3d_list, features, max_coords
 
 def compute_centroid(points, k=5, threshold_factor=1.0):
     if len(points) < k + 1:
@@ -472,7 +476,7 @@ def get_features(keypoints):
         estimated_height, _centroid = estimate_height_from_point_cloud(point_cloud=person, m_initial=100)
         list_heights.append(estimated_height)
 
-    kps_filtered = np.array(keypoints)[:, [0, 3, 4, 5, 6, 11, 12], :]
+    kps_filtered = np.array(keypoints)[:, [0, 1, 2, 5, 6, 11, 12], :]
 
     # Get each point of person, all person
     list_points_persons, list_ponits_bodies_nofiltered = get_each_point_of_person(kps_filtered)
@@ -486,9 +490,9 @@ def get_features(keypoints):
         ## Vector promedio del tronco
         avg_normal = average_normals(list_tronco_normal) 
         if avg_normal is not None:
-            avg_normal_head, list_union_centroids, avg_head_centroid, character, _confianza = get_group_features(list_centroides, centroide, avg_normal, list_head_normal, list_points_persons)
+            avg_normal_head, list_union_centroids, avg_head_centroid, character, confianza = get_group_features(list_centroides, centroide, avg_normal, list_head_normal, list_points_persons)
 
-    return get_structure_data(keypoints, character, list_tronco_normal, list_head_normal, avg_normal, avg_normal_head, list_centroides, list_union_centroids, centroide, avg_head_centroid, list_is_centroid_to_nariz, list_heights)
+    return get_structure_data(keypoints, character, confianza, list_tronco_normal, list_head_normal, avg_normal, avg_normal_head, list_centroides, list_union_centroids, centroide, avg_head_centroid, list_is_centroid_to_nariz, list_heights)
 
 
 
