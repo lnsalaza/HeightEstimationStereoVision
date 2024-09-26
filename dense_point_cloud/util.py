@@ -233,3 +233,29 @@ def convert_individual_point_clouds_format(
         return True, output_zip_path
     except Exception as e:
         return False, f"Error al convertir y comprimir los archivos: {str(e)}"
+    
+def get_max_coordinates(points):
+    np_points = np.concatenate(points)
+    abs_points = np.abs(np_points)
+    max_coords = np.max(abs_points, axis=0)
+    return max_coords.tolist()
+
+# def get_max_coordinates(points):
+#     np_points = np.concatenate(points)
+#     print(len(np_points))
+#     abs_points = np.abs(np_points)
+#     print(abs_points)
+#     index_max_coords = np.argmax(abs_points, axis=0)
+#     max_coords = np_points[index_max_coords, range(np_points.shape[1])]
+#     return max_coords.tolist()
+
+# def encontrar_maximos_valor_absoluto_memmap(ruta_archivo):
+#     # Suponiendo que los datos están almacenados en un archivo binario
+#     # con formato adecuado y conocido (por ejemplo, float32)
+#     np_puntos = np.memmap(ruta_archivo, dtype='float32', mode='r')
+#     # Reshape según la estructura de tus datos (n_puntos, 3)
+#     np_puntos = np_puntos.reshape(-1, 3)
+#     abs_puntos = np.abs(np_puntos)
+#     indices_max_abs = np.argmax(abs_puntos, axis=0)
+#     maximos = np_puntos[indices_max_abs, range(np_puntos.shape[1])]
+#     return maximos.tolist()

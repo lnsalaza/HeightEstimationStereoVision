@@ -29,12 +29,12 @@ def calcular_angulo_con_eje_y(normal_plano):
   
   return angulo_grados
 
-def get_structure_data(kps, character, list_tronco_normal, list_head_normal, avg_normal, avg_normal_head, list_centroides, list_union_centroids, centroide, avg_head_centroid, list_is_centroid_to_nariz, list_heights):
+def get_structure_data(kps, character, confianza, list_tronco_normal, list_head_normal, avg_normal, avg_normal_head, list_centroides, list_union_centroids, centroide, avg_head_centroid, list_is_centroid_to_nariz, list_heights):
     res = {}
     res["persons"] = {}
 
     for i, person in enumerate(kps):
-      list_head = np.array(person)[[0, 3, 4], :].tolist()
+      list_head = np.array(person)[[0, 1, 2], :].tolist()
       list_tronco = np.array(person)[[5, 6, 11, 12], :].tolist()
       res["persons"][i] = {}
       res["persons"][i]["points"] = person.tolist()
@@ -50,6 +50,7 @@ def get_structure_data(kps, character, list_tronco_normal, list_head_normal, avg
     
     res["count"] = i+1
     res["character"] = character
+    res["exactitud"] = confianza
     res["centroid"] = centroide.tolist()
     res["avg_normal"] = avg_normal.tolist()
     res["angle_avg_normal"] = calcular_angulo_con_eje_y(avg_normal)
@@ -201,31 +202,22 @@ def get_centroid_and_normal(list_points_persons, list_ponits_bodies_nofiltered, 
         normal = get_vector_normal_to_plane(list_ponits_bodies_nofiltered[index])
         if normal is not None:
             list_tronco_normal.append(normal)
-        
-            # Si no hay vector normal al plano no se mostrará la nariz y menos el vector normal a la cabeza
-            if len(head_points[0]) > 0:
-                # La distancia z de la nariz tiene que ser menor al centroide
-                if (head_points[0][2] <= centroide[2]):
-                    normal_head, is_invest = get_vector_normal_to_head(
-                        np.array([head_points[0][0] - centroide[0], head_points[0][1] - head_points[0][1], head_points[0][2] - centroide[2]]), 
-                        normal
-                    )
-                    if is_invest:
-                        is_centroid_to_nariz = False
-                    else:
-                        is_centroid_to_nariz = True
-                else:
-                    normal_head, is_invest = get_vector_normal_to_head(
-                        np.array([centroide[0] - head_points[0][0], head_points[0][1] - head_points[0][1], centroide[2] - head_points[0][2]]), 
-                        normal
-                    )
+            head_points_filtered = [head_pt for head_pt in head_points if head_pt]
 
-                    if is_invest:
-                        is_centroid_to_nariz = True
-                    else:
-                        is_centroid_to_nariz = False
+            # Si no hay vector normal al plano no se mostrará la nariz y menos el vector normal a la cabeza
+            if len(head_points_filtered) > 0:
+                # Sin correccion de la direccion del vector normla de la cabeza
+                # calcular el vector de un punto a otro
+                indivudual_head_vector = head_points_filtered - centroide
+                individual_head_avg = np.mean(indivudual_head_vector, axis=0)
+                individual_head_avg = np.array([individual_head_avg[0], 0, individual_head_avg[2]])
+                individual_head_avg, is_invest = get_vector_normal_to_head(
+                        individual_head_avg, 
+                        normal
+                )
+                is_centroid_to_nariz = is_invest
                 
-                list_head_normal.append(normal_head)
+                list_head_normal.append(individual_head_avg)
                 list_is_centroid_to_nariz.append(is_centroid_to_nariz)
             else:
                 print("---- No se encuentra la nariz")
@@ -339,38 +331,10 @@ def get_img_shape_meet_prev_sort(list_centroides_sorted, puntos, centroide, list
     character, confianza = get_character(img_res_2)
     return character, confianza
 
-# Función para calcular la intersección de dos segmentos
-def line_intersection(p1, p2, q1, q2):
-    # p1, p2 son los puntos del segmento del polígono
-    # q1, q2 son los puntos del segmento del vector
-    A1 = p2[1] - p1[1]
-    B1 = p1[0] - p2[0]
-    C1 = A1 * p1[0] + B1 * p1[1]
-
-    A2 = q2[1] - q1[1]
-    B2 = q1[0] - q2[0]
-    C2 = A2 * q1[0] + B2 * q1[1]
-
-    det = A1 * B2 - A2 * B1
-    if det == 0:
-        return None  # Las líneas son paralelas
-
-    x = (B2 * C1 - B1 * C2) / det
-    y = (A1 * C2 - A2 * C1) / det
-
-    # Verificar si la intersección está dentro de los segmentos
-    if (min(p1[0], p2[0]) <= x <= max(p1[0], p2[0]) and
-        min(p1[1], p2[1]) <= y <= max(p1[1], p2[1]) and
-        min(q1[0], q2[0]) <= x <= max(q1[0], q2[0]) and
-        min(q1[1], q2[1]) <= y <= max(q1[1], q2[1])):
-        return np.array([x, y])
-    return None
-
 def get_connection_points(list_centroides, centroide, avg_normal):
     list_centroides = np.array(list_centroides)
     puntos = list_centroides[:,[0,2]]
     centroide_tmp = centroide[[0, 2]]
-    avg_normal_tmp = avg_normal[[0, 2]]
     character, confianza = "", 0
     list_pos_extremo = []
     list_union_centroides = []
@@ -380,52 +344,21 @@ def get_connection_points(list_centroides, centroide, avg_normal):
     elif len(puntos) == 2:
         list_union_centroides = [0, 1]
     else:
-        # ================================================================================
-        # Eliminar la linea de intersección con el vector normal del grupo
-        puntos_sorted = puntos[np.argsort(puntos[:, 1])]
-        pt_menor = puntos_sorted[0, 1]
-        pt_mayor = puntos_sorted[-1, 1]
-        val_dif_mayor_menor = pt_mayor - pt_menor
-        if val_dif_mayor_menor <= 30: 
-            for i in range(len(puntos_sorted) - 1):
-                index = np.where(puntos == puntos_sorted[i])[0][0]
-                index_2 = np.where(puntos == puntos_sorted[i+1])[0][0]
-                list_union_centroides.append([index, index_2])
-            list_pos_extremo.append([np.where(puntos == puntos_sorted[0])[0][0], np.where(puntos == puntos_sorted[-1])[0][0]])
-        else:
-            # Calcular la envolvente convexa
-            hull = ConvexHull(puntos)
+        # Inicializar variables para la distancia máxima y los puntos correspondientes
+        hull = ConvexHull(puntos)
+        max_distancia = 0
 
-            # Calcular el punto final del vector
-            vector_end = centroide_tmp + avg_normal_tmp * 1000  # Escalar para que sea largo
+        # Iterar sobre cada par de índices en hull_simplices
+        for simplex in hull.simplices:
+            p1, p2 = puntos[simplex]
+            distancia = np.linalg.norm(p2 - p1)
+            if distancia > max_distancia:
+                max_distancia = distancia
+                list_pos_extremo = [simplex]
 
-            for simplex in hull.simplices:
-                p1, p2 = puntos[simplex]
-                interseccion = line_intersection(p1, p2, centroide_tmp, vector_end)
-                if interseccion is None:
-                    list_union_centroides.append(simplex)
-                else:
-                    list_pos_extremo.append(simplex)
-        # ================================================================================
-
-        # # ================================================================================
-        # # Eliminar la linea mas larga
-        # # Inicializar variables para la distancia máxima y los puntos correspondientes
-        # hull = ConvexHull(puntos)
-        # max_distancia = 0
-
-        # # Iterar sobre cada par de índices en hull_simplices
-        # for simplex in hull.simplices:
-        #     p1, p2 = puntos[simplex]
-        #     distancia = np.linalg.norm(p2 - p1)
-        #     if distancia > max_distancia:
-        #         max_distancia = distancia
-        #         list_pos_extremo = [simplex]
-
-        # for simplex in hull.simplices:
-        #     if not np.array_equal(simplex, list_pos_extremo[0]):
-        #         list_union_centroides.append(simplex)
-        # # ================================================================================
+        for simplex in hull.simplices:
+            if not np.array_equal(simplex, list_pos_extremo[0]):
+                list_union_centroides.append(simplex)
 
     character, confianza = get_img_shape_meet_prev_sort(list_union_centroides, puntos, centroide_tmp, list_pos_extremo)
 
@@ -448,14 +381,13 @@ def get_group_features(list_centroides, centroide, avg_normal, list_head_normal,
         
         list_nose_height = []
         for i in np.array(list_points_persons, dtype=object)[:, 0]:
+            head_points_filtered = [head_pt for head_pt in i if head_pt]
             # A pesar de haber vectores puede que una persona no tenga la nariz detectada, pero list_head_normal sabemos que si tiene al menos una persona completa
-            if len(i[0]) > 0:
-                list_nose_height.append(i[0][1])
+            list_nose_height.append(head_points_filtered[0][1])
         
-        avg_nose_height = int(np.mean(list_nose_height))
+        avg_nose_height = np.mean(list_nose_height)
 
         # list_points_persons de aqui sacar el promedio de la altura de la nariz
         avg_head_centroid = np.array([centroide[0], avg_nose_height, centroide[2]])
 
     return avg_normal_head, list_union_centroids, avg_head_centroid, character, confianza
-
