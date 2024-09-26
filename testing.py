@@ -329,6 +329,10 @@ def test_estimate_height_from_point_cloud(img_left, img_right, config, method, u
         viewer.clear_geometries()
         viewer.destroy_window()
 
+def test_estimate_height_from_face_proportions(img_left, img_right, config):
+    depth = estimate_height_from_face_proportions(img_left=img_left, img_right=img_right, config=config)
+    print(depth)
+
 
 def load_config(path):
     """
@@ -339,6 +343,12 @@ def load_config(path):
     return config
 
 if __name__ == "__main__":
+
+    import torch
+
+    print(torch.cuda.is_available())
+
+
     # # Cargar las imágenes como arrays
     # img_left = cv2.imread("images/laser/groundTruth/298 y 604/15_22_21_07_06_2024_IMG_LEFT.jpg")
     # img_right = cv2.imread("images/laser/groundTruth/298 y 604/15_22_21_07_06_2024_IMG_RIGHT.jpg")
@@ -368,9 +378,12 @@ if __name__ == "__main__":
     # img_left = cv2.imread("../originals/heights/157/16_13_54_19_07_2024_IMG_LEFT.jpg")
     # img_right = cv2.imread("../originals/heights/157/16_13_54_19_07_2024_IMG_RIGHT.jpg")
 
-    img_left = cv2.imread("../originals/prof_alturas/300_z/15_00_39_19_08_2024_IMG_LEFT.jpg")
-    img_right = cv2.imread("../originals/prof_alturas/300_z/15_00_39_19_08_2024_IMG_RIGHT.jpg")
-
+    # img_left = cv2.imread("../originals/prof_alturas/300_z/15_00_39_19_08_2024_IMG_LEFT.jpg")
+    # img_right = cv2.imread("../originals/prof_alturas/300_z/15_00_39_19_08_2024_IMG_RIGHT.jpg")
+    
+    img_left = cv2.imread("../originals/distances/300/14_06_13_13_05_2024_IMG_LEFT.jpg")
+    img_right = cv2.imread("../originals/distances/300/14_06_13_13_05_2024_IMG_RIGHT.jpg")
+    
     if img_left is None or img_right is None:
         raise FileNotFoundError("Una o ambas imágenes no pudieron ser cargadas. Verifique las rutas.")
 
@@ -442,4 +455,8 @@ if __name__ == "__main__":
 
 
     #TEST FEATURE EXTRACTION
-    test_filtered_point_cloud_with_features(img_left, img_right, config, method="RAFT", use_roi=False, use_max_disparity=True, normalized=True)
+    # test_filtered_point_cloud_with_features(img_left, img_right, config, method="RAFT", use_roi=False, use_max_disparity=True, normalized=True)
+
+    #TEST HEIGHT FROM FACE
+    test_estimate_height_from_face_proportions(img_left, img_right, config)
+    
