@@ -197,7 +197,7 @@ def test_filtered_point_cloud_with_features(img_left, img_right, config, method,
         normalized (bool): Indica si la nube de puntos se normaliza.
     """
     # Generar nubes de puntos, colores, keypoints 3D y características
-    point_cloud_list, color_list, keypoints3d, features = generate_filtered_point_cloud_with_features(
+    point_cloud_list, color_list, keypoints3d, features, max_coords= generate_filtered_point_cloud_with_features(
         img_left, img_right, config, method, use_roi, use_max_disparity, normalized
     )
 
@@ -404,7 +404,7 @@ if __name__ == "__main__":
 
 
     # #TEST NUBE DE PUNTOS NO DENSA INDIVIDUAL
-    test_individual_filtered_point_clouds(img_left, img_right, config, method, use_roi=False, use_max_disparity=True, normalized=True)
+    # test_individual_filtered_point_clouds(img_left, img_right, config, method, use_roi=False, use_max_disparity=True, normalized=True)
 
     # #TEST CENTROIDE EN NUBE DE PUNTOS NO DENSA INDIVIDUAL
     #test_individual_filtered_point_cloud_with_centroid(img_left, img_right, config, method, use_roi=False, use_max_disparity=True)
