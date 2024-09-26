@@ -13,7 +13,7 @@ from dense_point_cloud.Selective_IGEV.bridge_selective import get_SELECTIVE_disp
 from dense_point_cloud.RAFTStereo.bridge_raft import get_RAFT_disparity_map
 from calibration.rectification import load_stereo_maps 
 from dense_point_cloud.features_script import *
-
+from dense_point_cloud.FaceHeightEstimation.height_stimation import compute_height_using_face_metrics
 from scipy.spatial import cKDTree
 from scipy.spatial import distance_matrix
 import numpy as np
@@ -531,3 +531,18 @@ def estimate_height_from_point_cloud(point_cloud: np.array, k: int = 5, threshol
     except ValueError as ve:
         print(f"Error al calcular el centroide: {ve}")
         return None, None
+    
+
+def estimate_height_from_face_proportions(img_left, img_right, config):
+    """
+    Calcula la altura de una persona utilizando las medidas faciales de la persona identificada.
+
+    :param img_left: Imagen del lado izquierdo como array de numpy.
+    :param img_right: Imagen del lado derecho como array de numpy.
+    :param config: Diccionario de configuración para un perfil específico.
+    :return: Altura estimada de la persona.
+    """
+    camera_config = config['camera_params']
+    depth = compute_height_using_face_metrics(img_left=img_left, img_right=img_right, baseline=camera_config['baseline'], fx=camera_config['fx'], camera_center_left=[camera_config['cx1'], camera_config['cy']])
+
+    return depth

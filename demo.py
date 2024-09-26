@@ -47,9 +47,18 @@ def detect_person_with_orchestrator_webcam():
             if not ret:
                 print("Error: No se pudo capturar el frame.")
                 break
+            # Se rota la captura del video 180 grados
+            frame = cv2.rotate(frame, cv2.ROTATE_180)
 
+            # Se corta la resolucion de 3840 a la mitad para que queda 1080
+            middle_width = frame.shape[1] // 2
+
+            # Se obtienen las 2 capturas de la camara, teniendo en cuenta que el posicionamiento esta invertido
+            frame_l = frame[:, middle_width:]
+            frame_r = frame[:, :middle_width]
+            
             # Realizar la predicción con YOLO
-            results = model(frame, conf=0.8)
+            results = model(frame_l, conf=0.8)[0]
 
             # Dibujar las cajas de detección y probabilidades
             for result in results:
@@ -58,39 +67,41 @@ def detect_person_with_orchestrator_webcam():
                     conf = box.conf[0]  # Confianza de detección
 
                     # Dibujar la caja
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-                    cv2.putText(frame, f"Person {conf:.2f} - Height {altura}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                    cv2.rectangle(frame_l, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.putText(frame_l, f"Height {altura} - Person {conf:.2f}", (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+                            # Si se detecta una persona
+                
+
+                # Salir del bucle si se presiona 'q'
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
 
             # Mostrar el frame con las detecciones
-            cv2.imshow('YOLOv8 Person Detection', frame)
+            cv2.imshow('YOLOv8 Person Detection', frame_l)
+            if len(results.boxes) > 0:
+                    current_time = time.time()
 
-            # Si se detecta una persona
-            if len(results[0].boxes) > 0:
-                current_time = time.time()
+                    # Procesar cada 'processing_interval' segundos y solo si no hay otro hilo en ejecución
+                    if current_time - last_processed_time > processing_interval and (height_thread is None or not height_thread.is_alive()):
+                        print("Iniciando procesamiento de altura...")
 
-                # Procesar cada 'processing_interval' segundos y solo si no hay otro hilo en ejecución
-                if current_time - last_processed_time > processing_interval and (height_thread is None or not height_thread.is_alive()):
-                    print("Iniciando procesamiento de altura...")
+                        
+                        # Asegurarse de que las imágenes están en formato NumPy array
+                        if frame_l is not None and frame_r is not None:
+                            # Crear un nuevo hilo para la estimación de altura
+                            height_thread = HeightEstimatorThread(orchestrator, frame_l, frame_r)
+                            try:
+                                cv2.imshow(frame_l, 0)
+                            except:
+                                print("error en la imagen")
+                            height_thread.start()
 
-                    # Capturar y convertir las imágenes a NumPy arrays
-                    ret, img_left = cap.read()  # Simular la imagen izquierda con el frame actual
-                    ret, img_right = cap.read()  # Simular la imagen derecha con el frame siguiente
-
-                    # Asegurarse de que las imágenes están en formato NumPy array
-                    if img_left is not None and img_right is not None:
-                        # Crear un nuevo hilo para la estimación de altura
-                        height_thread = HeightEstimatorThread(orchestrator, img_left, img_right)
-                        height_thread.start()
-
-                    # Actualizar el tiempo de la última ejecución
-                    last_processed_time = current_time
-
-            # Salir del bucle si se presiona 'q'
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+                        # Actualizar el tiempo de la última ejecución
+                        last_processed_time = current_time
 
     except KeyboardInterrupt:
         print("Detenido por el usuario.")
+        print(altura)
 
     finally:
         cap.release()

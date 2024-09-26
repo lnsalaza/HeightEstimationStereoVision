@@ -5,3 +5,5 @@ kp_extraction/runs/
 *.pth
 __pycache__/
 *.vscode/settings.json
+*.pyc
+
