@@ -95,6 +95,7 @@ def compute_height_using_face_metrics(img_left, img_right, baseline, fx, camera_
     px_size = depth / fx
     
     # Calculate height using features and pixel size
-    height = computeHeigth2(features_left[1], px_size, camera_center_left)
+    # height = computeHeigth2(features_left[1], px_size, camera_center_left)
+    height = computeHeigth(features=features_left[1], pixel_size=px_size) # *1.84900175
 
     return height

@@ -359,8 +359,8 @@ if __name__ == "__main__":
     # img_left = cv2.imread("../originals/laser/groundTruth/790/15_30_41_07_06_2024_IMG_LEFT.jpg")
     # img_right = cv2.imread("../originals/laser/groundTruth/790/15_30_41_07_06_2024_IMG_RIGHT.jpg")
 
-    img_left = cv2.imread("images/distances/300/14_06_19_13_05_2024_IMG_LEFT.jpg")
-    img_right = cv2.imread("images/distances/300/14_06_19_13_05_2024_IMG_RIGHT.jpg")
+    # img_left = cv2.imread("images/distances/300/14_06_19_13_05_2024_IMG_LEFT.jpg")
+    # img_right = cv2.imread("images/distances/300/14_06_19_13_05_2024_IMG_RIGHT.jpg")
 
     
     # img_left = cv2.imread("images/distances/300/14_06_13_13_05_2024_IMG_LEFT.jpg")
@@ -384,9 +384,13 @@ if __name__ == "__main__":
     # img_left = cv2.imread("../originals/prof_alturas/300_z/15_00_39_19_08_2024_IMG_LEFT.jpg")
     # img_right = cv2.imread("../originals/prof_alturas/300_z/15_00_39_19_08_2024_IMG_RIGHT.jpg")
     
-    img_left = cv2.imread("../originals/distances/300/14_06_13_13_05_2024_IMG_LEFT.jpg")
-    img_right = cv2.imread("../originals/distances/300/14_06_13_13_05_2024_IMG_RIGHT.jpg")
+    # img_left = cv2.imread("../originals/distances/300/14_06_13_13_05_2024_IMG_LEFT.jpg")
+    # img_right = cv2.imread("../originals/distances/300/14_06_13_13_05_2024_IMG_RIGHT.jpg")
     
+    img_left = cv2.imread("../originals/27_9_2024_13_28_56_LEFT.png")
+    img_right = cv2.imread("../originals/27_9_2024_13_28_56_RIGHT.png")
+    
+
     if img_left is None or img_right is None:
         raise FileNotFoundError("Una o ambas imágenes no pudieron ser cargadas. Verifique las rutas.")
 
@@ -417,7 +421,7 @@ if __name__ == "__main__":
 
 
     # #TEST NUBE DE PUNTOS NO DENSA INDIVIDUAL
-    test_individual_filtered_point_clouds(img_left, img_right, config, method, use_roi=False, use_max_disparity=True, normalized=True)
+    #test_individual_filtered_point_clouds(img_left, img_right, config, method, use_roi=False, use_max_disparity=True, normalized=True)
 
     # #TEST CENTROIDE EN NUBE DE PUNTOS NO DENSA INDIVIDUAL
     #test_individual_filtered_point_cloud_with_centroid(img_left, img_right, config, method, use_roi=False, use_max_disparity=True)

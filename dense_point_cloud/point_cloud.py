@@ -543,6 +543,6 @@ def estimate_height_from_face_proportions(img_left, img_right, config):
     :return: Altura estimada de la persona.
     """
     camera_config = config['camera_params']
-    depth = compute_height_using_face_metrics(img_left=img_left, img_right=img_right, baseline=camera_config['baseline'], fx=camera_config['fx'], camera_center_left=[camera_config['cx1'], camera_config['cy']])
+    height = compute_height_using_face_metrics(img_left=img_left, img_right=img_right, baseline=(-1*camera_config['baseline']), fx=camera_config['fx'], camera_center_left=[camera_config['cx1'], camera_config['cy']])
 
-    return depth
+    return height
