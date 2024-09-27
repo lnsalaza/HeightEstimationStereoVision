@@ -197,7 +197,7 @@ def test_filtered_point_cloud_with_features(img_left, img_right, config, method,
         normalized (bool): Indica si la nube de puntos se normaliza.
     """
     # Generar nubes de puntos, colores, keypoints 3D y características
-    point_cloud_list, color_list, keypoints3d, features = generate_filtered_point_cloud_with_features(
+    point_cloud_list, color_list, keypoints3d, features, max_coords= generate_filtered_point_cloud_with_features(
         img_left, img_right, config, method, use_roi, use_max_disparity, normalized
     )
 
