@@ -19,7 +19,7 @@ from dense_point_cloud.util import (
     convert_individual_point_clouds_format
 )
 
-app = FastAPI(title="Stereo Calibration API")
+app = FastAPI(title="Stereo Vision API")
 
 
 app.add_middleware(
@@ -31,6 +31,9 @@ app.add_middleware(
 )
 
 
+@app.get("/")
+async def root():
+    return {"message": "Te has conectado exitosamente. Bienvenido al API de Stereo Vision, todo parece estar funcionando bien!"}
 
 @app.post("/app_profile/")
 async def app_profile(file: UploadFile = File(...), profile_name: str = Form(...)):
@@ -387,6 +390,100 @@ async def estimate_height_from_cloud(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al procesar la nube de puntos: {str(e)}")
 
+@app.post("/face/height_estimation/")
+async def estimate_height_from_face(
+    img_left: UploadFile = File(...),
+    img_right: UploadFile = File(...),
+    profile_name: str = Form(...)
+):
+    """
+    Estima la altura de una persona en la escena usando las medidas/proporciones del rostro.
+
+    Args:
+        img_left (UploadFile): Imagen del lado izquierdo como archivo subido.
+        img_right (UploadFile): Imagen del lado derecho como archivo subido.
+        profile_name (str): Nombre del perfil de calibración a utilizar.
+    Returns:
+        JSONResponse: Contiene la altura estimada y la profundidad a la que se encuentra la persona.
+    """
+    try:
+        
+        # Leer las imágenes subidas
+        left_image = await read_image_from_upload(img_left)
+        right_image = await read_image_from_upload(img_right)
+
+        # Cargar la configuración del perfil y rectificar las imágenes
+        profile = load_profile(profile_name)
+        if not profile:
+            raise HTTPException(status_code=404, detail=f"Perfil {profile_name} no encontrado.")
+
+        left_image_rect, right_image_rect = rectify_images(left_image, right_image, profile_name)
+
+
+        # Se estima la altura y la profundidad de la persona
+        height, depth = estimate_height_from_face_proportions(img_left=left_image_rect, img_right=right_image_rect, profile_name=profile)
+        
+
+        # Se asume que hay al menos una nube de puntos de la cual estimar la altura
+        if height < 0:
+            raise HTTPException(status_code=404, detail="No se pudo estimar la altura de la persona de forma correcta.")
+
+        return {    
+            "profile_used": profile_name,
+            "height": height,
+            "depth": depth
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/face/eyes_camera_separation/")
+async def estimate_separation_eyes_camera(
+    img_left: UploadFile = File(...),
+    img_right: UploadFile = File(...),
+    profile_name: str = Form(...)
+):
+    """
+    Estima la separación en Y entre los ojos de la persona en la escena y el centro optico de la camara.
+
+    Args:
+        img_left (UploadFile): Imagen del lado izquierdo como archivo subido.
+        img_right (UploadFile): Imagen del lado derecho como archivo subido.
+        profile_name (str): Nombre del perfil de calibración a utilizar.
+    Returns:
+        JSONResponse: Contiene la separación estimada y la profundidad a la que se encuentra la persona.
+    """
+    try:
+        
+        # Leer las imágenes subidas
+        left_image = await read_image_from_upload(img_left)
+        right_image = await read_image_from_upload(img_right)
+
+        # Cargar la configuración del perfil y rectificar las imágenes
+        profile = load_profile(profile_name)
+        if not profile:
+            raise HTTPException(status_code=404, detail=f"Perfil {profile_name} no encontrado.")
+
+        left_image_rect, right_image_rect = rectify_images(left_image, right_image, profile_name)
+
+
+        # Se estima la altura y la profundidad de la persona
+        height, depth = estimate_separation_eyes_camera(img_left=left_image_rect, img_right=right_image_rect, profile_name=profile)
+        
+
+        # Se asume que hay al menos una nube de puntos de la cual estimar la altura
+        if height < 0:
+            raise HTTPException(status_code=404, detail="No se pudo estimar la separacíon entre los ojos de la persona y el centro optico de la camara de forma correcta.")
+
+        return {    
+            "profile_used": profile_name,
+            "height": height,
+            "separation": depth
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        
 @app.post("/generate_point_cloud/nodense/features/")
 async def generate_point_cloud_with_features(
     img_left: UploadFile = File(...),

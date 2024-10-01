@@ -98,4 +98,43 @@ def compute_height_using_face_metrics(img_left, img_right, baseline, fx, camera_
     # height = computeHeigth2(features_left[1], px_size, camera_center_left)
     height = computeHeigth(features=features_left[1], pixel_size=px_size) # *1.84900175
 
-    return height
+    return height, depth
+
+def compute_separation_eyes_camera(img_left, img_right, baseline, fx, camera_center_left):
+    """
+    Calculates the height of an object using facial metrics from two camera images.
+
+    Parameters:
+    img_left (ndarray): Image from the left camera.
+    img_right (ndarray): Image from the right camera.
+    baseline (float): Distance between the two cameras (in meters).
+    fx (float): Focal length of the cameras (in pixels).
+    camera_center_left (tuple): Coordinates of the left camera's center (x, y).
+
+    Returns:
+    float: The calculated height of the object.
+
+    Process:
+    1. Extract keypoints from both images.
+    2. Compute depth using extracted features.
+    3. Calculate pixel size from depth and focal length.
+    4. Determine height using left image features and pixel size.
+    """
+    
+    features_left = FeaturesExtractor()
+    features_right = FeaturesExtractor()
+
+    # Extract keypoints from the images
+    features_left = features_left.extract_keypts(img_left)
+    features_right = features_right.extract_keypts(img_right)
+    
+    # Compute depth from the extracted features
+    depth = computeDepth(features_left[2], features_right[2], baseline, fx)
+    
+    # Calculate pixel size based on depth and focal length
+    px_size = depth / fx
+    
+    # Calculate height using features and pixel size
+    height = computeHeigth2(features_left[1], px_size, camera_center_left)
+
+    return height, depth
