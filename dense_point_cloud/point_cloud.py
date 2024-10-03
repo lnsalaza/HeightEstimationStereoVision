@@ -543,7 +543,7 @@ def estimate_height_from_face_proportions(img_left, img_right, config):
     :return: Altura estimada de la persona y la profundidad estimada a la que se encuentra el rostro de la persona.
     """
     camera_config = config['camera_params']
-    height, depth = compute_height_using_face_metrics(img_left=img_left, img_right=img_right, baseline=(-1*camera_config['baseline']), fx=camera_config['fx'], camera_center_left=[camera_config['cx1'], camera_config['cy']])
+    height, depth = compute_height_using_face_metrics(img_left=img_left, img_right=img_right, baseline=58, fx=camera_config['fx'], camera_center_left=[camera_config['cx1'], camera_config['cy']])
 
     return height, depth
 
@@ -557,6 +557,6 @@ def estimate_separation_eyes_camera(img_left, img_right, config):
     :return: Altura estimada de la persona y la profundidad estimada a la que se encuentra el rostro de la persona.
     """
     camera_config = config['camera_params']
-    height, depth = compute_separation_eyes_camera(img_left=img_left, img_right=img_right, baseline=(-1*camera_config['baseline']), fx=camera_config['fx'], camera_center_left=[camera_config['cx1'], camera_config['cy']])
+    height, depth = compute_separation_eyes_camera(img_left=img_left, img_right=img_right, baseline=camera_config['baseline'], fx=camera_config['fx'], camera_center_left=[camera_config['cx1'], camera_config['cy']])
 
     return height, depth

@@ -35,8 +35,8 @@ app.add_middleware(
 async def root():
     return {"message": "Te has conectado exitosamente. Bienvenido al API de Stereo Vision, todo parece estar funcionando bien!"}
 
-@app.post("/app_profile/")
-async def app_profile(file: UploadFile = File(...), profile_name: str = Form(...)):
+@app.post("/add_profile/")
+async def add_profile(file: UploadFile = File(...), profile_name: str = Form(...)):
     """
     Endpoint para subir un archivo JSON de calibración y generar el perfil de calibración correspondiente.
 
@@ -66,8 +66,7 @@ async def app_profile(file: UploadFile = File(...), profile_name: str = Form(...
         with open(json_path, 'w') as json_file:
             json.dump(calibration_data, json_file)
 
-        profile_data = generate_profile_data(calibration_data, profile_name)
-        profile_path = save_profile(profile_data, profile_name)
+        
 
         parameters = load_stereo_parameters(json_path)
         rectification = stereo_rectify(parameters)
@@ -77,6 +76,9 @@ async def app_profile(file: UploadFile = File(...), profile_name: str = Form(...
         }
         xml_path = os.path.join(config_dir, 'stereo_map.xml')
         save_stereo_maps(xml_path, stereo_maps, rectification[4])
+
+        profile_data = generate_profile_data(calibration_data, profile_name, rectification[4])
+        profile_path = save_profile(profile_data, profile_name)
 
         return {
             "message": "Archivo de calibración subido y procesado con éxito",
@@ -421,7 +423,7 @@ async def estimate_height_from_face(
 
 
         # Se estima la altura y la profundidad de la persona
-        height, depth = estimate_height_from_face_proportions(img_left=left_image_rect, img_right=right_image_rect, profile_name=profile)
+        height, depth = estimate_height_from_face_proportions(img_left=left_image_rect, img_right=right_image_rect, config=profile)
         
 
         # Se asume que hay al menos una nube de puntos de la cual estimar la altura
@@ -438,7 +440,7 @@ async def estimate_height_from_face(
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/face/eyes_camera_separation/")
-async def estimate_separation_eyes_camera(
+async def estimate_difference_eyes_camera(
     img_left: UploadFile = File(...),
     img_right: UploadFile = File(...),
     profile_name: str = Form(...)
@@ -468,7 +470,7 @@ async def estimate_separation_eyes_camera(
 
 
         # Se estima la altura y la profundidad de la persona
-        height, depth = estimate_separation_eyes_camera(img_left=left_image_rect, img_right=right_image_rect, profile_name=profile)
+        height, depth = estimate_separation_eyes_camera(img_left=left_image_rect, img_right=right_image_rect, config=profile)
         
 
         # Se asume que hay al menos una nube de puntos de la cual estimar la altura
@@ -478,7 +480,7 @@ async def estimate_separation_eyes_camera(
         return {    
             "profile_used": profile_name,
             "height": height,
-            "separation": depth
+            "depth": depth
         }
 
     except Exception as e:

@@ -387,8 +387,8 @@ if __name__ == "__main__":
     # img_left = cv2.imread("../originals/distances/300/14_06_13_13_05_2024_IMG_LEFT.jpg")
     # img_right = cv2.imread("../originals/distances/300/14_06_13_13_05_2024_IMG_RIGHT.jpg")
     
-    img_left = cv2.imread("../originals/27_9_2024_13_28_56_LEFT.png")
-    img_right = cv2.imread("../originals/27_9_2024_13_28_56_RIGHT.png")
+    img_left = cv2.imread("../originals/26_9_2024_10_40_32_LEFT.png")
+    img_right = cv2.imread("../originals/26_9_2024_10_40_32_RIGHT.png")
     
 
     if img_left is None or img_right is None:

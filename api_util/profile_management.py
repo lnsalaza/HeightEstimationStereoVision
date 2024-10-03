@@ -13,7 +13,7 @@ def save_profile(profile_data, profile_name, directory="profiles"):
 
     return file_path  # Opcional, devuelve la ruta del archivo para referencia
 
-def generate_profile_data(calibration_data: Dict, profile_name: str) -> Dict:
+def generate_profile_data(calibration_data: Dict, profile_name: str, Q:any) -> Dict:
     """
     Genera datos de perfil estandarizados a partir de los parámetros de calibración.
 
@@ -35,13 +35,15 @@ def generate_profile_data(calibration_data: Dict, profile_name: str) -> Dict:
     Tx = calibration_data['stereoT'][0]
     
     # Genera la matriz Q utilizando los valores calculados
-    Q_matrix = [
-        [1.0, 0.0, 0.0, -calibration_data['cameraMatrix1'][2][0]],
-        [0.0, 1.0, 0.0, -calibration_data['cameraMatrix1'][2][1]],
-        [0.0, 0.0, 0.0, f],  # Se usa el promedio geométrico de fx y fy aquí en caso de que no se tenga un fx, fy igual en las dos camaras. Idealmente deberia ser fx1=fy1=fx2=fy2
-        [0.0, 0.0, -1.0/Tx, (calibration_data['cameraMatrix1'][2][0] - calibration_data['cameraMatrix2'][2][0]) / Tx]
-    ]
-
+    # Q_matrix2 = [
+    #     [1.0, 0.0, 0.0, -calibration_data['cameraMatrix1'][2][0]],
+    #     [0.0, 1.0, 0.0, -calibration_data['cameraMatrix1'][2][1]],
+    #     [0.0, 0.0, 0.0, f],  # Se usa el promedio geométrico de fx y fy aquí en caso de que no se tenga un fx, fy igual en las dos camaras. Idealmente deberia ser fx1=fy1=fx2=fy2
+    #     [0.0, 0.0, -1.0/Tx, (calibration_data['cameraMatrix1'][2][0] - calibration_data['cameraMatrix2'][2][0]) / Tx]
+    # ]
+    
+    
+    Q_matrix = Q.tolist()
     # Estructura del perfil a devolver
     return {
         "profile_name": profile_name,
@@ -52,7 +54,7 @@ def generate_profile_data(calibration_data: Dict, profile_name: str) -> Dict:
             "cx1": calibration_data['cameraMatrix1'][2][0],
             "cx2": calibration_data['cameraMatrix2'][2][0],
             "cy": (calibration_data['cameraMatrix1'][2][1] + calibration_data['cameraMatrix2'][2][1]) / 2,
-            "baseline": Tx,
+            "baseline": calibration_data['baseline'],
             "Q_matrix": Q_matrix
         },
         "disparity_methods": {
