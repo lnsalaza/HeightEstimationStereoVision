@@ -55,10 +55,11 @@ def correct_depth_o3d(points, alpha=0.5):
     Z_corrected = Z_safe ** alpha
     X_corrected = X * (Z_corrected / Z_safe)
     Y_corrected = Y * (Z_corrected / Z_safe)
+    # corrected_points = np.vstack((X_corrected, Y_corrected, Z_corrected)).T
     corrected_points = np.vstack((X_corrected, Y_corrected, (0.6947802265318861*Z_corrected) + -14.393348239171985)).T
     return corrected_points
 
-def process_numpy_point_cloud(points_np, reference_point=[0, 0, 0], scale_factor=0.280005, alpha=1.0005119):
+def process_numpy_point_cloud(points_np, reference_point=[0, 0, 0], scale_factor=0.150005, alpha=1.0005119):
     # Escalar la nube de puntos
     scaler = PointCloudScaler(reference_point=reference_point, scale_factor=scale_factor)
     scaled_points_np = scaler.scale_cloud(points_np)
@@ -172,11 +173,11 @@ def generate_dense_point_cloud(img_left: np.array, img_right: np.array, config: 
     # Generar nube de puntos 3D densa
     if method == 'SGBM' or method == 'WLS-SGBM':
         point_cloud, colors = pcGen.disparity_to_pointcloud(disparity_map, Q, img_left, use_max_disparity=use_max_disparity)
-        scale_factor = 3.45
+        scale_factor = 1.87
     else:
         # Asumimos que RAFT y SELECTIVE usan la versión ML para reproyección
         point_cloud, colors = pcGen_ML.disparity_to_pointcloud(disparity_map, fx, fy, cx1, cx2, cy, baseline, img_left, use_max_disparity=use_max_disparity)
-        scale_factor = 0.280005
+        scale_factor = 0.150005
     # Normalizar la nube de puntos si se solicita
     if normalize:
         point_cloud = process_numpy_point_cloud(point_cloud, scale_factor=scale_factor, alpha=1.0005119)
@@ -232,13 +233,13 @@ def generate_combined_filtered_point_cloud(img_left: np.array, img_right: np.arr
             img_left, disparity_map, Q, use_roi=use_roi, use_max_disparity=use_max_disparity, 
             camera_type="matlab"
         )
-        scale_factor = 3.45
+        scale_factor = 1.87
     else:
         point_cloud, colors, eps, min_samples = pcGen_ML.generate_all_filtered_point_cloud(
             img_left, disparity_map, fx, fy, cx1, cx2, cy, baseline, use_roi=use_roi, use_max_disparity=use_max_disparity,
             camera_type="matlab"
         )
-        scale_factor = 0.280005
+        scale_factor = 0.150005
     # Normalizar la nube de puntos si se solicita
     if normalize:
         point_cloud = process_numpy_point_cloud(point_cloud, scale_factor=scale_factor, alpha=1.0005119)
@@ -279,12 +280,12 @@ def generate_individual_filtered_point_clouds(img_left: np.array, img_right: np.
         point_cloud_list, color_list, eps, min_samples, keypoints3d_list = pcGen.generate_filtered_point_cloud(
             img_left, disparity_map, Q, "matlab", use_roi, use_max_disparity
         )
-        scale_factor = 3.45
+        scale_factor = 1.87
     else:
         point_cloud_list, color_list, eps, min_samples, keypoints3d_list = pcGen_ML.generate_filtered_point_cloud(
             img_left, disparity_map, fx, fy, cx1, cx2, cy, baseline, "matlab", use_roi, use_max_disparity
         )
-        scale_factor = 0.280005
+        scale_factor = 0.150005
     # Normalizar las nubes de puntos si se solicita
     if normalize:
         
@@ -338,12 +339,12 @@ def generate_filtered_point_cloud_with_features(
         point_cloud_list, color_list, eps, min_samples, keypoints3d_list = pcGen.generate_filtered_point_cloud(
             img_left, disparity_map, Q, "matlab", use_roi, use_max_disparity
         )
-        scale_factor = 3.45
+        scale_factor = 1.87
     else:
         point_cloud_list, color_list, eps, min_samples, keypoints3d_list = pcGen_ML.generate_filtered_point_cloud(
             img_left, disparity_map, fx, fy, cx1, cx2, cy, baseline, "matlab", use_roi, use_max_disparity
         )
-        scale_factor = 0.280005
+        scale_factor = 0.150005
 
     # Normalizar las nubes de puntos si se solicita
     if normalize:
@@ -511,6 +512,7 @@ def estimate_height_from_point_cloud(point_cloud: np.array, k: int = 5, threshol
     """
     try:
         # Calcular el centroide de la nube de puntos
+        print(point_cloud)
         centroid = compute_centroid(point_cloud, k=k, threshold_factor=threshold_factor)
 
         # Filtrar los puntos de la nube en un rango óptimo basado en el centroide

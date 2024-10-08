@@ -15,8 +15,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 # --------------------------------------------------- KEYPOINTS EXTRACTION -------------------------------------------------------
 
 # Load a model
-pose = YOLO('yolov8n-pose.pt').to(device=device)  # load an official model
-segmentation = YOLO('yolov8n-seg.pt').to(device=device)  # load an official model
+pose = YOLO('yolo11n-pose.pt').to(device=device)  # load an official model
+segmentation = YOLO('yolo11n-seg.pt').to(device=device)  # load an official model
 
 
 # Extract results
