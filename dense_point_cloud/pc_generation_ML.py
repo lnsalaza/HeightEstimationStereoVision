@@ -33,7 +33,10 @@ def disparity_to_pointcloud(disparity, fx, fy, cx1, cx2, cy, baseline, image, cu
     cy = float(cy)
     baseline = float(baseline)
 
-    depth = -(fx * baseline) / (disparity + (cx2 - cx1))
+    depth = (fx * baseline) / (disparity + (cx2 - cx1))
+
+    
+
     H, W = depth.shape
     xx, yy = np.meshgrid(np.arange(W, dtype=np.float64), np.arange(H, dtype=np.float64), indexing='xy')
 
@@ -132,8 +135,8 @@ def get_strutured_kepoints3d(keypoints, disparity, fx, fy, cx1, cx2, cy, baselin
     cx2 = float(cx2)
     cy = float(cy)
     baseline = float(baseline)
-
-    depth = (fx * baseline) / (-disparity + (cx2 - cx1))
+    
+    depth = (fx * baseline) / (disparity + (cx2 - cx1))
     H, W = depth.shape
     xx, yy = np.meshgrid(np.arange(W, dtype=np.float64), np.arange(H, dtype=np.float64), indexing='xy')
 
@@ -145,7 +148,7 @@ def get_strutured_kepoints3d(keypoints, disparity, fx, fy, cx1, cx2, cy, baselin
         nueva_persona = []
         for punto in persona:
             x, y = punto
-            coordenadas_3d = points_grid[int(y), int(x)]
+            coordenadas_3d = points_grid[int(y)-1, int(x)-1]
             nueva_persona.append(coordenadas_3d)
         estructura_con_coordenadas_3d.append(np.array(nueva_persona, dtype=np.float64))
     

@@ -2,7 +2,7 @@ import os
 import math
 import json
 from typing import Dict, Optional
-
+import numpy as np
 def save_profile(profile_data, profile_name, directory="profiles"):
     # Asegurarse de que el directorio existe; crearlo si no es así
     os.makedirs(directory, exist_ok=True)
@@ -42,7 +42,8 @@ def generate_profile_data(calibration_data: Dict, profile_name: str, Q:any) -> D
     #     [0.0, 0.0, -1.0/Tx, (calibration_data['cameraMatrix1'][2][0] - calibration_data['cameraMatrix2'][2][0]) / Tx]
     # ]
     
-    
+    baseline = np.linalg.norm(np.array(calibration_data['stereoT']))
+    print(f"Esta es la base lineee" + {baseline})
     Q_matrix = Q.tolist()
     # Estructura del perfil a devolver
     return {
@@ -54,7 +55,7 @@ def generate_profile_data(calibration_data: Dict, profile_name: str, Q:any) -> D
             "cx1": calibration_data['cameraMatrix1'][2][0],
             "cx2": calibration_data['cameraMatrix2'][2][0],
             "cy": (calibration_data['cameraMatrix1'][2][1] + calibration_data['cameraMatrix2'][2][1]) / 2,
-            "baseline": calibration_data['baseline'],
+            "baseline": baseline,
             "Q_matrix": Q_matrix
         },
         "disparity_methods": {

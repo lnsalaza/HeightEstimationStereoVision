@@ -37,7 +37,7 @@ def test_point_cloud(img_left, img_right, config, method, use_max_disparity, nor
 
     # Añadir la nube de puntos a la ventana de visualización
     viewer.add_geometry(pcd)
-    origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=10, origin=[0,0,0])
+    origin = o3d.geometry.TriangleMesh.create_coordinate_frame(size=100, origin=[0,0,0])
     viewer.add_geometry(origin)
 
     # Configurar opciones de renderizado
@@ -363,8 +363,8 @@ if __name__ == "__main__":
     # img_right = cv2.imread("images/distances/300/14_06_19_13_05_2024_IMG_RIGHT.jpg")
 
     
-    # img_left = cv2.imread("images/distances/300/14_06_13_13_05_2024_IMG_LEFT.jpg")
-    # img_right = cv2.imread("images/distances/300/14_06_13_13_05_2024_IMG_RIGHT.jpg")
+    img_left = cv2.imread("images/distances/300/14_06_13_13_05_2024_IMG_LEFT.jpg")
+    img_right = cv2.imread("images/distances/300/14_06_13_13_05_2024_IMG_RIGHT.jpg")
 
     # img_left = cv2.imread("images/distances/400/14_07_35_13_05_2024_IMG_LEFT.jpg")
     # img_right = cv2.imread("images/distances/400/14_07_35_13_05_2024_IMG_RIGHT.jpg")
@@ -387,8 +387,8 @@ if __name__ == "__main__":
     # img_left = cv2.imread("../originals/distances/300/14_06_13_13_05_2024_IMG_LEFT.jpg")
     # img_right = cv2.imread("../originals/distances/300/14_06_13_13_05_2024_IMG_RIGHT.jpg")
     
-    img_left = cv2.imread("../originals/26_9_2024_10_40_32_LEFT.png")
-    img_right = cv2.imread("../originals/26_9_2024_10_40_32_RIGHT.png")
+    # img_left = cv2.imread("../originals/26_9_2024_10_40_32_LEFT.png")
+    # img_right = cv2.imread("../originals/26_9_2024_10_40_32_RIGHT.png")
     
 
     if img_left is None or img_right is None:
@@ -397,12 +397,12 @@ if __name__ == "__main__":
 
     
     # Cargar configuración desde el archivo JSON
-    config = load_config("profiles/MATLAB.json")
+    config = load_config("profiles/Cardiff.json")
     
 
     img_left, img_right = rectify_images(img_left, img_right, config=config['profile_name'])
     # Asumiendo que queremos usar el método SGBM, ajusta si es WLS-SGBM, RAFT o SELECTIVE según tu configuración
-    method = 'RAFT'
+    method = 'SELECTIVE'
 
     # convert_to_gray("./raft_demo_output/output_1.png","./raft_demo_output/gray_output_1.png")
     # convert_to_gray("./seletive_demo_output/output_1.png","./seletive_demo_output/gray_output_1.png")
@@ -410,7 +410,7 @@ if __name__ == "__main__":
     #test_disparity_map(img_left, img_right, config, method)
 
     # #TEST NUBE DE PUNTOS DENSA
-    #test_point_cloud(img_left, img_right, config, method, use_max_disparity=True, normalized=False)
+    test_point_cloud(img_left, img_right, config, method, use_max_disparity=True, normalized=False)
 
 
     # #TEST NUBE DE PUNTOS NO DENSA TOTAL
@@ -465,5 +465,5 @@ if __name__ == "__main__":
     # test_filtered_point_cloud_with_features(img_left, img_right, config, method="RAFT", use_roi=False, use_max_disparity=True, normalized=True)
 
     #TEST HEIGHT FROM FACE
-    test_estimate_height_from_face_proportions(img_left, img_right, config)
+    #test_estimate_height_from_face_proportions(img_left, img_right, config)
     

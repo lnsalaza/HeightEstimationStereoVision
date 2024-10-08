@@ -8,3 +8,5 @@ ultralytics
 # ML models
 timm==0.5.4
 opt_einsum
+
+mediapipe
