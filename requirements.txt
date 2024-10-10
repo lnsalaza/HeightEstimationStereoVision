@@ -10,3 +10,5 @@ timm==0.5.4
 opt_einsum
 
 mediapipe
+python-multipart
+pillow

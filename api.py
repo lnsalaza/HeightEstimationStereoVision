@@ -1,5 +1,7 @@
+import io
 import os
 import json
+from PIL import Image
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -605,3 +607,25 @@ async def download_individual_converted_point_clouds(format: str):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al procesar la descarga: {str(e)}")
+
+@app.post("/upload-frame/")
+async def upload_frame(file: UploadFile = File(...)):
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        
+        image.save(f"../tmp/frame/{file.filename}")
+        return JSONResponse(content={"message": "Frame recibido y procesado correctamente."}, status_code=200)
+    except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+    
+@app.post("/process-video/")
+def porcess_video(output_filename: str, search_pattern: str, fps: int ):
+    image_folder = "../tmp/frame/"
+    output_video_path = os.join(image_folder, output_filename)
+    if not output_video_path.endswith_('.avi'):
+        try:
+            create_video_from_frames(image_folder, search_pattern, output_filename, fps)
+            return FileResponse(path=output_video_path, media_type='video/x-msvideo', filename=output_filename)
+        except ValueError as e:
+            raise HTTPException(status_code=500, detail=f"Error al procesar el video: {str(e)}")
