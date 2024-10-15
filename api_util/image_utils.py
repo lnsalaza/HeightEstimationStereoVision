@@ -1,6 +1,7 @@
 import os
 import cv2
 import numpy as np
+import ffmpeg
 from glob import glob
 from natsort import natsorted
 from fastapi import UploadFile
@@ -37,3 +38,17 @@ def create_video_from_frames(image_folder: str, criteria: str, output_video_path
         video_writer.write(frame)
     
     video_writer.release()
+
+def convert_video():
+    stream = ffmpeg.input('..\\..\\..\\tmp\\video\\input\\15_10_2024_10_28_38_LEFT.webm')
+    stream = ffmpeg.hflip(stream)
+    stream = ffmpeg.output(stream, '..\\..\\..\\tmp\\video\\output\\15_10_2024_10_28_38_LEFT.avi')
+    ffmpeg.run(stream)
+    # Python Check if the file exists
+    if os.path.exists("..\\..\\..\\tmp\\video\\output\\15_10_2024_10_28_38_LEFT.avi"):
+        print("File exists!")
+        return True
+    else:
+        print("File does not exist.")
+        return False
+    

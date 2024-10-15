@@ -629,3 +629,25 @@ def porcess_video(output_filename: str, search_pattern: str, fps: int ):
             return FileResponse(path=output_video_path, media_type='video/x-msvideo', filename=output_filename)
         except ValueError as e:
             raise HTTPException(status_code=500, detail=f"Error al procesar el video: {str(e)}")
+        
+@app.get("/convert_video/")
+def convert_file_file():
+    """
+    Devuelve una lista de todos los perfiles de calibración disponibles.
+
+    Este endpoint escanea la carpeta 'profiles' para buscar archivos JSON que representen perfiles de calibración. 
+    Cada perfil se devuelve con su nombre y la ruta de acceso al archivo correspondiente.
+
+    Returns:
+        list: Una lista de diccionarios, cada uno representando un perfil con su 'name' y 'path'.
+
+    Raises:
+        HTTPException: Si no se encuentran perfiles o si ocurre un error durante la operación de búsqueda.
+    """
+    try:
+        profiles = convert_video()
+        if not profiles:
+            raise HTTPException(status_code=404, detail="No video convertion")
+        return profiles
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
