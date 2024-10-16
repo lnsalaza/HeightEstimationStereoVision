@@ -1,6 +1,8 @@
 import io
 import os
 import json
+import uuid
+
 from PIL import Image
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
@@ -630,24 +632,61 @@ def porcess_video(output_filename: str, search_pattern: str, fps: int ):
         except ValueError as e:
             raise HTTPException(status_code=500, detail=f"Error al procesar el video: {str(e)}")
         
-@app.get("/convert_video/")
-def convert_file_file():
-    """
-    Devuelve una lista de todos los perfiles de calibración disponibles.
 
-    Este endpoint escanea la carpeta 'profiles' para buscar archivos JSON que representen perfiles de calibración. 
-    Cada perfil se devuelve con su nombre y la ruta de acceso al archivo correspondiente.
+@app.post("/convert_video/")
+async def convert_video_endpoint(file: UploadFile = File(...)):
+    # Validar el tipo de archivo
+    if file.content_type not in ["video/webm", "video/avi"]:
+        raise HTTPException(status_code=400, detail="Formato de archivo no soportado.")
 
-    Returns:
-        list: Una lista de diccionarios, cada uno representando un perfil con su 'name' y 'path'.
+    # Directorio temporal personalizado
+    
+    tmp_dir = f'../tmp/video/{uuid.uuid4()}'
+    if not os.path.exists(tmp_dir):
+        os.makedirs(tmp_dir)
 
-    Raises:
-        HTTPException: Si no se encuentran perfiles o si ocurre un error durante la operación de búsqueda.
-    """
+    # Generar nombres de archivos únicos
+    input_filename = f"input.webm"
+    output_filename = f"output.avi"
+
+    input_path = os.path.join(tmp_dir, input_filename)
+    output_path = os.path.join(tmp_dir, output_filename)
+
     try:
-        profiles = convert_video()
-        if not profiles:
-            raise HTTPException(status_code=404, detail="No video convertion")
-        return profiles
+        # Guardar el archivo subido en el directorio tmp
+        with open(input_path, 'wb') as f:
+            content = await file.read()
+            f.write(content)
+
+        # Llamar a la función de conversión de video
+        convert_video(input_path, output_path)
+
+        # Verificar que el archivo de salida se haya creado
+        if not os.path.exists(output_path):
+            raise HTTPException(status_code=500, detail="Error al crear el archivo de salida.")
+
+        # Devolver el archivo convertido al cliente
+        return FileResponse(
+            output_path,
+            media_type='video/avi',
+            filename=f"{os.path.splitext(file.filename)[0]}.avi"
+        )
+
+    except HTTPException as http_exc:
+        raise http_exc
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    # finally:
+    #     # Eliminar los archivos temporales
+    #     if os.path.exists(input_path):
+    #         os.remove(input_path)
+    #     if os.path.exists(output_path):
+    #         os.remove(output_path)
+    #     # if os.path.exists(tmp_dir):
+    #     #     os.remove(tmp_dir)
+
+    #     # # Vaciar la carpeta tmp
+    #     # for filename in os.listdir(tmp_dir):
+    #     #     file_path = os.path.join(tmp_dir, filename)
+    #     #     if os.path.isfile(file_path):
+    #     #         os.remove(file_path)

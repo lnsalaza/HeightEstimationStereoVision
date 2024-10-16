@@ -8,7 +8,7 @@ import open3d as o3d
 import plotly.graph_objects as go
 from dense_point_cloud.point_cloud import * 
 from dense_point_cloud.util import convert_point_cloud_format, convert_individual_point_clouds_format
-from testing_util import convert_to_gray
+from testing_util import convert_to_gray, test_convert_video
 ######################### NEXT FUNCTION ARE JUST FOR TESTING PURPOSES #################################
 def test_disparity_map(img_left, img_right, config, method):
     # Calcular el mapa de disparidad
@@ -410,7 +410,7 @@ if __name__ == "__main__":
     #test_disparity_map(img_left, img_right, config, method)
 
     # #TEST NUBE DE PUNTOS DENSA
-    test_point_cloud(img_left, img_right, config, method, use_max_disparity=True, normalized=False)
+    # test_point_cloud(img_left, img_right, config, method, use_max_disparity=True, normalized=False)
 
 
     # #TEST NUBE DE PUNTOS NO DENSA TOTAL
@@ -466,4 +466,6 @@ if __name__ == "__main__":
 
     #TEST HEIGHT FROM FACE
     #test_estimate_height_from_face_proportions(img_left, img_right, config)
+
+    test_convert_video()
     

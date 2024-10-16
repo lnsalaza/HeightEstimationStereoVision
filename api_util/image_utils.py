@@ -39,16 +39,44 @@ def create_video_from_frames(image_folder: str, criteria: str, output_video_path
     
     video_writer.release()
 
-def convert_video():
-    stream = ffmpeg.input('..\\..\\..\\tmp\\video\\input\\15_10_2024_10_28_38_LEFT.webm')
-    stream = ffmpeg.hflip(stream)
-    stream = ffmpeg.output(stream, '..\\..\\..\\tmp\\video\\output\\15_10_2024_10_28_38_LEFT.avi')
-    ffmpeg.run(stream)
-    # Python Check if the file exists
-    if os.path.exists("..\\..\\..\\tmp\\video\\output\\15_10_2024_10_28_38_LEFT.avi"):
-        print("File exists!")
-        return True
-    else:
-        print("File does not exist.")
-        return False
+def convert_video(input_path: str, output_path: str, codec: str = 'XVID') -> None:
+    """
+    Convierte un video de formato webm a avi utilizando OpenCV.
+
+    Args:
+        input_path (str): Ruta del archivo de video de entrada.
+        output_path (str): Ruta donde se guardará el archivo de video de salida.
+        codec (str): Codec a utilizar para la codificación del video de salida.
+    """
+    # Abrir el video de entrada con OpenCV
+    cap = cv2.VideoCapture(input_path)
+
+    # Verificar si el video se abrió correctamente
+    if not cap.isOpened():
+        raise Exception("Error al abrir el video de entrada.")
+
+    # Obtener las propiedades del video
+    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    if fps == 0 or fps is None:
+        fps = 30  # Establecer FPS por defecto si no se puede obtener
+
+    # Definir el codec y crear el objeto VideoWriter para el archivo de salida
+    fourcc = cv2.VideoWriter_fourcc(*codec)
+    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+
+    # Procesar el video frame por frame
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        # Escribir el frame en el archivo de salida
+        out.write(frame)
+
+    # Liberar recursos
+    cap.release()
+    out.release()
+    cv2.destroyAllWindows()
+
     

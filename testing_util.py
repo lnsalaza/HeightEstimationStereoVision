@@ -1,6 +1,7 @@
 import os
 import cv2
 import json
+import api_util.image_utils as imgutil
 def read_image_pairs_by_distance(base_folder):
     image_pairs_by_distance = {}
 
@@ -66,3 +67,10 @@ def convert_to_gray(input_path, output_path):
     cv2.imwrite(output_path, gray_image)
 
     print(f"Image converted to grayscale and saved at {output_path}")
+
+def test_convert_video():
+    input_file = '15_10_2024_10_28_38_LEFT.webm'
+    output_file = '15_10_2024_10_28_38_LEFT.avi'
+    imgutil.convert_video(input_file, output_file)
+
+    print(f"Video converted saved at {output_file}")
