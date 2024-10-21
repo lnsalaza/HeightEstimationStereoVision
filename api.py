@@ -636,7 +636,7 @@ def porcess_video(output_filename: str, search_pattern: str, fps: int ):
 @app.post("/convert_video/")
 async def convert_video_endpoint(file: UploadFile = File(...)):
     # Validar el tipo de archivo
-    if file.content_type not in ["video/webm", "video/avi"]:
+    if file.content_type not in ["video/webm", "video/avi", 'video/webm;codecs=vp9']:
         raise HTTPException(status_code=400, detail="Formato de archivo no soportado.")
 
     # Directorio temporal personalizado

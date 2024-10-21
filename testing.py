@@ -6,6 +6,9 @@ import dense_point_cloud.pc_generation as pcGen
 import matplotlib.pyplot as plt
 import open3d as o3d
 import plotly.graph_objects as go
+
+import calibration.calibration as cb
+import api_util.profile_management as pm
 from dense_point_cloud.point_cloud import * 
 from dense_point_cloud.util import convert_point_cloud_format, convert_individual_point_clouds_format
 from testing_util import convert_to_gray, test_convert_video
@@ -345,12 +348,46 @@ def load_config(path):
         config = json.load(file)
     return config
 
+def test_add_profile(filepath, profile_name):
+    # Abrir el archivo JSON desde la ruta proporcionada (filepath)
+    with open(filepath, 'r') as file:
+        contents = file.read()
+    
+    calibration_data = json.loads(contents)
+    
+    if 'cameraMatrix1' not in calibration_data:
+        raise ValueError("Datos de calibración incompletos.")
+
+    config_dir = f'config_files/{profile_name}'
+    os.makedirs(config_dir, exist_ok=True)
+    json_path = os.path.join(config_dir, 'calibration_data.json')
+    with open(json_path, 'w') as json_file:
+        json.dump(calibration_data, json_file)
+
+    
+
+    parameters = cb.load_stereo_parameters(json_path)
+    rectification = cb.stereo_rectify(parameters)
+    stereo_maps = {
+        'Left': cb.create_rectify_map(parameters['cameraMatrix1'], parameters['distCoeffs1'], rectification[0], rectification[2], parameters['imageSize']),
+        'Right': cb.create_rectify_map(parameters['cameraMatrix2'], parameters['distCoeffs2'], rectification[1], rectification[3], parameters['imageSize'])
+    }
+    xml_path = os.path.join(config_dir, 'stereo_map.xml')
+    cb.save_stereo_maps(xml_path, stereo_maps, rectification[4])
+
+    profile_data = pm.generate_profile_data(calibration_data, profile_name, rectification[4])
+    profile_path = pm.save_profile(profile_data, profile_name)
+
 if __name__ == "__main__":
 
     import torch
 
     print(torch.cuda.is_available())
 
+
+    profile_json_path = "./config_files/Cardiff/calibration_data.json"
+
+    test_add_profile(profile_json_path, "Prueba")
 
     # # Cargar las imágenes como arrays
     # img_left = cv2.imread("images/laser/groundTruth/298 y 604/15_22_21_07_06_2024_IMG_LEFT.jpg")
@@ -467,5 +504,5 @@ if __name__ == "__main__":
     #TEST HEIGHT FROM FACE
     #test_estimate_height_from_face_proportions(img_left, img_right, config)
 
-    test_convert_video()
+    # test_convert_video()
     

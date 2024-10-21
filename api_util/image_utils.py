@@ -1,7 +1,6 @@
 import os
 import cv2
 import numpy as np
-import ffmpeg
 from glob import glob
 from natsort import natsorted
 from fastapi import UploadFile

@@ -43,7 +43,6 @@ def generate_profile_data(calibration_data: Dict, profile_name: str, Q:any) -> D
     # ]
     
     baseline = np.linalg.norm(np.array(calibration_data['stereoT']))
-    print(f"Esta es la base lineee" + {baseline})
     Q_matrix = Q.tolist()
     # Estructura del perfil a devolver
     return {
