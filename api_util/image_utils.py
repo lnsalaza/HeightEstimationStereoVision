@@ -1,5 +1,6 @@
 import os
 import cv2
+import shutil
 import numpy as np
 from glob import glob
 from natsort import natsorted
@@ -20,25 +21,8 @@ async def read_image_from_upload(file: UploadFile) -> np.array:
     image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
     return image
 
-def create_video_from_frames(image_folder: str, criteria: str, output_video_path: str, fps: int = 30):
-    image_files = glob(os.path.join(image_folder, f"*{criteria}.png"))
-    if not image_files:
-        raise ValueError("No se encontraron imagenes para procesar")
-    sorted_images=natsorted(image_files)
-    frame = cv2.imread(sorted_images[0])
-    height, width, _ = frame.shape
 
-    fourcc = cv2.VideoWriter_fourcc(*'XVID')
-
-    video_writer = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
-
-    for image_file in sorted_images:
-        frame = cv2.imread(image_file)
-        video_writer.write(frame)
-    
-    video_writer.release()
-
-def convert_video(input_path: str, output_path: str, codec: str = 'XVID') -> None:
+def convert_video(input_path: str, output_path: str, codec: str = 'XVID', fps: float = 30.0) -> None:
     """
     Convierte un video de formato webm a avi utilizando OpenCV.
 
@@ -46,6 +30,7 @@ def convert_video(input_path: str, output_path: str, codec: str = 'XVID') -> Non
         input_path (str): Ruta del archivo de video de entrada.
         output_path (str): Ruta donde se guardará el archivo de video de salida.
         codec (str): Codec a utilizar para la codificación del video de salida.
+        fps (float): Tasa de cuadros por segundo para el video de salida.
     """
     # Abrir el video de entrada con OpenCV
     cap = cv2.VideoCapture(input_path)
@@ -57,25 +42,42 @@ def convert_video(input_path: str, output_path: str, codec: str = 'XVID') -> Non
     # Obtener las propiedades del video
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    if fps == 0 or fps is None:
-        fps = 30  # Establecer FPS por defecto si no se puede obtener
+
+    # Opcional: Validar los FPS obtenidos
+    input_fps = cap.get(cv2.CAP_PROP_FPS)
+    if input_fps <= 0 or input_fps > 120:
+        print(f"FPS inválidos detectados ({input_fps}). Se establecerán a {fps} FPS.")
+    else:
+        fps = input_fps
 
     # Definir el codec y crear el objeto VideoWriter para el archivo de salida
     fourcc = cv2.VideoWriter_fourcc(*codec)
     out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
 
     # Procesar el video frame por frame
+    frame_count = 0
     while True:
         ret, frame = cap.read()
         if not ret:
             break
         # Escribir el frame en el archivo de salida
         out.write(frame)
+        frame_count += 1
+
+    print(f"Conversión completada: {frame_count} frames escritos a {fps} FPS.")
 
     # Liberar recursos
     cap.release()
     out.release()
     cv2.destroyAllWindows()
 
+def delete_tmp_folder(path: str):
+    """
+    Elimina un directorio temporal si existe.
+
+    Args:
+        path (str): Ruta del directorio a eliminar.
+    """
+    if os.path.exists(path):
+        shutil.rmtree(path, ignore_errors=True)
     

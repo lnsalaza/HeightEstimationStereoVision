@@ -5,7 +5,7 @@ import uuid
 
 from PIL import Image
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
@@ -610,60 +610,54 @@ async def download_individual_converted_point_clouds(format: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al procesar la descarga: {str(e)}")
 
-@app.post("/upload-frame/")
-async def upload_frame(file: UploadFile = File(...)):
-    try:
-        contents = await file.read()
-        image = Image.open(io.BytesIO(contents))
-        
-        image.save(f"../tmp/frame/{file.filename}")
-        return JSONResponse(content={"message": "Frame recibido y procesado correctamente."}, status_code=200)
-    except Exception as e:
-        return JSONResponse(content={"error": str(e)}, status_code=500)
-    
-@app.post("/process-video/")
-def porcess_video(output_filename: str, search_pattern: str, fps: int ):
-    image_folder = "../tmp/frame/"
-    output_video_path = os.join(image_folder, output_filename)
-    if not output_video_path.endswith_('.avi'):
-        try:
-            create_video_from_frames(image_folder, search_pattern, output_filename, fps)
-            return FileResponse(path=output_video_path, media_type='video/x-msvideo', filename=output_filename)
-        except ValueError as e:
-            raise HTTPException(status_code=500, detail=f"Error al procesar el video: {str(e)}")
-        
-
 @app.post("/convert_video/")
-async def convert_video_endpoint(file: UploadFile = File(...)):
-    # Validar el tipo de archivo
-    if file.content_type not in ["video/webm", "video/avi", 'video/webm;codecs=vp9']:
-        raise HTTPException(status_code=400, detail="Formato de archivo no soportado.")
+async def convert_video_endpoint(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...), 
+    fps: float = Form(...),
+):
+    """
+    Convierte un archivo de video subido a formato AVI con un codec específico y el número de fotogramas por segundo (fps) indicado.
 
-    # Directorio temporal personalizado
-    
-    tmp_dir = f'../tmp/video/{uuid.uuid4()}'
-    if not os.path.exists(tmp_dir):
-        os.makedirs(tmp_dir)
+    Args:
+        background_tasks (BackgroundTasks): Manejador de tareas en segundo plano.
+        file (UploadFile): Archivo de video subido por el usuario, soporta formatos "video/webm", "video/avi" y "video/webm;codecs=vp9".
+        fps (float): Número de fotogramas por segundo deseado para el video de salida.
 
-    # Generar nombres de archivos únicos
-    input_filename = f"input.webm"
-    output_filename = f"output.avi"
-
-    input_path = os.path.join(tmp_dir, input_filename)
-    output_path = os.path.join(tmp_dir, output_filename)
-
+    Returns:
+        FileResponse: Respuesta con el archivo de video convertido en formato AVI. 
+                      Si ocurre un error, se lanza una excepción HTTP con el código de error y detalle.
+    """
     try:
+        # Validar el tipo de archivo
+        if file.content_type not in ["video/webm", "video/avi", 'video/webm;codecs=vp9']:
+            raise HTTPException(status_code=400, detail="Formato de archivo no soportado.")
+
+        # Directorio temporal personalizado
+        tmp_dir = f'../tmp/video/{uuid.uuid4()}'
+        os.makedirs(tmp_dir, exist_ok=True)
+
+        # Generar nombres de archivos únicos
+        input_filename = "input.webm"
+        output_filename = "output.avi"
+
+        input_path = os.path.join(tmp_dir, input_filename)
+        output_path = os.path.join(tmp_dir, output_filename)
+
         # Guardar el archivo subido en el directorio tmp
         with open(input_path, 'wb') as f:
             content = await file.read()
             f.write(content)
 
-        # Llamar a la función de conversión de video
-        convert_video(input_path, output_path)
+        # Llamar a la función de conversión de video con el codec deseado
+        convert_video(input_path, output_path, codec='XVID', fps=fps)
 
         # Verificar que el archivo de salida se haya creado
         if not os.path.exists(output_path):
             raise HTTPException(status_code=500, detail="Error al crear el archivo de salida.")
+
+        # Agregar tarea en segundo plano para eliminar el directorio temporal después de la respuesta
+        background_tasks.add_task(delete_tmp_folder, tmp_dir)
 
         # Devolver el archivo convertido al cliente
         return FileResponse(
@@ -671,22 +665,7 @@ async def convert_video_endpoint(file: UploadFile = File(...)):
             media_type='video/avi',
             filename=f"{os.path.splitext(file.filename)[0]}.avi"
         )
-
     except HTTPException as http_exc:
         raise http_exc
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    # finally:
-    #     # Eliminar los archivos temporales
-    #     if os.path.exists(input_path):
-    #         os.remove(input_path)
-    #     if os.path.exists(output_path):
-    #         os.remove(output_path)
-    #     # if os.path.exists(tmp_dir):
-    #     #     os.remove(tmp_dir)
-
-    #     # # Vaciar la carpeta tmp
-    #     # for filename in os.listdir(tmp_dir):
-    #     #     file_path = os.path.join(tmp_dir, filename)
-    #     #     if os.path.isfile(file_path):
-    #     #         os.remove(file_path)
