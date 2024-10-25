@@ -1,5 +1,6 @@
 # Calibration and Dense Cloud
 opencv-contrib-python
+# Importat: use opencv-contrib-python not opencv-python
 matplotlib
 open3d
 scikit-learn
@@ -12,3 +13,4 @@ opt_einsum
 mediapipe
 python-multipart
 pillow
+natsort
