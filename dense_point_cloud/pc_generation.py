@@ -83,7 +83,6 @@ def compute_disparity(left_image, right_image, config):
     if config['wls_filter']:
         # Crear el matcher derecho basado en el matcher izquierdo para consistencia
         right_matcher = cv2.ximgproc.createRightMatcher(stereo)
-
         # Calcular el mapa de disparidad de la imagen derecha a la izquierda
         right_disp = right_matcher.compute(right_image, left_image)#.astype(np.float32) / 16.0 ${PROBAR}
 
