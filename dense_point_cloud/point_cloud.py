@@ -293,10 +293,12 @@ def generate_individual_filtered_point_clouds(img_left: np.array, img_right: np.
         normalized_keypoints_list = [process_numpy_point_cloud(kps, scale_factor=scale_factor, alpha=1.0005119) for kps in keypoints3d_list]
         
         prepare_individual_point_clouds(normalized_point_cloud_list, color_list, normalized_keypoints_list)
-        return normalized_point_cloud_list, color_list, normalized_keypoints_list
+        max_coords = get_max_coordinates(normalized_point_cloud_list)
+        return normalized_point_cloud_list, color_list, normalized_keypoints_list, max_coords
     else:
         prepare_individual_point_clouds(point_cloud_list, color_list, keypoints3d_list)
-        return point_cloud_list, color_list, keypoints3d_list
+        max_coords = get_max_coordinates(point_cloud_list)
+        return point_cloud_list, color_list, keypoints3d_list, max_coords
 
 def generate_filtered_point_cloud_with_features(
     img_left: np.array, 
@@ -320,7 +322,7 @@ def generate_filtered_point_cloud_with_features(
         normalize (bool): Indica si normalizar la nube de puntos a una escala de unidad estándar.
 
     Returns:
-        Tuple of lists: Listas de nubes de puntos, colores, keypoints 3D, y características extraídas para cada persona.
+        Tuple of lists: Listas de nubes de puntos, colores, keypoints 3D, características extraídas para cada persona y la coordenadas del punto mas lejano.
     """
     # Generar el mapa de disparidad utilizando la función adecuada
     disparity_map = compute_disparity(img_left, img_right, config, method)

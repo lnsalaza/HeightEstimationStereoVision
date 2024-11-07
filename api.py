@@ -300,7 +300,7 @@ async def individual_no_dense_point_cloud(
         left_image_rect, right_image_rect = rectify_images(left_image, right_image, profile_name)
 
         # Generar listas de nubes de puntos para cada objeto detectado
-        point_clouds_list, colors_list, keypoints3d = generate_individual_filtered_point_clouds(
+        point_clouds_list, colors_list, keypoints3d, max_coords = generate_individual_filtered_point_clouds(
             left_image_rect, right_image_rect, profile, method, use_roi, use_max_disparity, normalize
         )
         
@@ -311,7 +311,8 @@ async def individual_no_dense_point_cloud(
             "profile_used": profile_name,
             "method_used": method,
             "roi_used": use_roi,
-            "normalized": normalize
+            "normalized": normalize,
+            "max_coords": max_coords
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
