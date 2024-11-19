@@ -78,7 +78,7 @@ def main():
         'Right': create_rectify_map(parameters['cameraMatrix2'], parameters['distCoeffs2'], rectification[1], rectification[3], parameters['imageSize'])
     }
     save_stereo_maps(args.xml, stereo_maps, rectification[4])
-
+    
     if (args.img_left or args.img_right):
 
         img_left = cv2.imread(args.img_left)
