@@ -4,8 +4,6 @@ import cv2
 import numpy as np
 import dense_point_cloud.pc_generation as pcGen
 import dense_point_cloud.pc_generation_ML as pcGen_ML
-import matplotlib.pyplot as plt
-import open3d as o3d
 from scipy.spatial import KDTree
 from sklearn.cluster import DBSCAN
 from dense_point_cloud.util import prepare_point_cloud, prepare_individual_point_clouds, filter_points_by_optimal_range, get_Y_bounds, get_max_coordinates
@@ -18,6 +16,7 @@ from scipy.spatial import cKDTree
 from scipy.spatial import distance_matrix
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
 
 # Clase encargada de la normalizacion estandar de las nubes de puntos
 class PointCloudScaler:
@@ -183,7 +182,6 @@ def generate_dense_point_cloud(img_left: np.array, img_right: np.array, config: 
         point_cloud = process_numpy_point_cloud(point_cloud, scale_factor=scale_factor, alpha=1.0005119)
     prepare_point_cloud(point_cloud, colors)
     return point_cloud, colors
-
 
 
 

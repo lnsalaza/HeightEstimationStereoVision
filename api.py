@@ -17,7 +17,7 @@ from calibration.calibration import (
     create_rectify_map, 
     save_stereo_maps
 )
-from dense_point_cloud.point_cloud import *
+from dense_point_cloud.point_cloud_alt import *
 from dense_point_cloud.util import (
     convert_point_cloud_format, 
     convert_individual_point_clouds_format
@@ -179,16 +179,24 @@ async def dense_point_cloud(
         HTTPException: Si no se puede procesar la solicitud debido a errores en la carga de perfiles, en la rectificación de imágenes o en la generación de la nube de puntos.
     """
     try:
-        left_image = await read_image_from_upload(img_left)
-        right_image = await read_image_from_upload(img_right)
+        # Leer las imágenes
+        if method != "realsense":
+            left_image = await read_image_from_upload(img_left)
+            right_image = await read_image_from_upload(img_right)
+        else:
+            left_image = await read_image_from_upload(img_left)
+            right_image = await read_image_from_upload(img_right, image_type="depth")
 
         # Cargar la configuración del perfil y rectificar las imágenes
         profile = load_profile(profile_name)
         if not profile:
             raise HTTPException(status_code=404, detail=f"Perfil {profile_name} no encontrado.")
 
-        left_image_rect, right_image_rect = rectify_images(left_image, right_image, profile_name)
-
+        if method != "realsense":
+            left_image_rect, right_image_rect = rectify_images(left_image, right_image, profile_name)
+        else:
+            left_image_rect, right_image_rect = left_image, right_image
+            
         # Generar nube de puntos
         point_cloud, colors = generate_dense_point_cloud(left_image_rect, right_image_rect, profile, method, use_max_disparity=use_max_disparity, normalize=normalize)
         return {
@@ -212,6 +220,7 @@ async def complete_no_dense_point_cloud(
     use_max_disparity: bool = True,
     normalize: bool = True  
 ):
+    
     """
     Recibe dos imágenes estéreo, las rectifica utilizando el perfil de calibración especificado,
     y luego genera una nube de puntos 3D filtrada y combinada utilizando el método de disparidad seleccionado.
@@ -233,15 +242,23 @@ async def complete_no_dense_point_cloud(
         HTTPException: Si no se puede procesar la solicitud debido a errores en la carga de perfiles, en la rectificación de imágenes o en la generación de la nube de puntos.
     """
     try:
-        left_image = await read_image_from_upload(img_left)
-        right_image = await read_image_from_upload(img_right)
+        # Leer las imágenes
+        if method != "realsense":
+            left_image = await read_image_from_upload(img_left)
+            right_image = await read_image_from_upload(img_right)
+        else:
+            left_image = await read_image_from_upload(img_left)
+            right_image = await read_image_from_upload(img_right, image_type="depth")
 
         # Cargar la configuración del perfil y rectificar las imágenes
         profile = load_profile(profile_name)
         if not profile:
             raise HTTPException(status_code=404, detail=f"Perfil {profile_name} no encontrado.")
 
-        left_image_rect, right_image_rect = rectify_images(left_image, right_image, profile_name)
+        if method != "realsense":
+            left_image_rect, right_image_rect = rectify_images(left_image, right_image, profile_name)
+        else:
+            left_image_rect, right_image_rect = left_image, right_image
 
         # Generar nube de puntos
         point_cloud, colors = generate_combined_filtered_point_cloud(left_image_rect, right_image_rect, profile, method, use_roi, use_max_disparity, normalize=normalize)
@@ -289,15 +306,23 @@ async def individual_no_dense_point_cloud(
         HTTPException: Si no se puede procesar la solicitud.
     """
     try:
-        left_image = await read_image_from_upload(img_left)
-        right_image = await read_image_from_upload(img_right)
+        # Leer las imágenes
+        if method != "realsense":
+            left_image = await read_image_from_upload(img_left)
+            right_image = await read_image_from_upload(img_right)
+        else:
+            left_image = await read_image_from_upload(img_left)
+            right_image = await read_image_from_upload(img_right, image_type="depth")
 
         # Cargar la configuración del perfil y rectificar las imágenes
         profile = load_profile(profile_name)
         if not profile:
             raise HTTPException(status_code=404, detail=f"Perfil {profile_name} no encontrado.")
 
-        left_image_rect, right_image_rect = rectify_images(left_image, right_image, profile_name)
+        if method != "realsense":
+            left_image_rect, right_image_rect = rectify_images(left_image, right_image, profile_name)
+        else:
+            left_image_rect, right_image_rect = left_image, right_image
 
         # Generar listas de nubes de puntos para cada objeto detectado
         point_clouds_list, colors_list, keypoints3d, max_coords = generate_individual_filtered_point_clouds(
@@ -352,18 +377,25 @@ async def estimate_height_from_cloud(
         use_roi = False
 
         # Leer las imágenes subidas
-        left_image = await read_image_from_upload(img_left)
-        right_image = await read_image_from_upload(img_right)
+        if method != "realsense":
+            left_image = await read_image_from_upload(img_left)
+            right_image = await read_image_from_upload(img_right)
+        else:
+            left_image = await read_image_from_upload(img_left)
+            right_image = await read_image_from_upload(img_right, image_type="depth")
 
         # Cargar la configuración del perfil y rectificar las imágenes
         profile = load_profile(profile_name)
         if not profile:
             raise HTTPException(status_code=404, detail=f"Perfil {profile_name} no encontrado.")
 
-        left_image_rect, right_image_rect = rectify_images(left_image, right_image, profile_name)
+        if method != "realsense":
+            left_image_rect, right_image_rect = rectify_images(left_image, right_image, profile_name)
+        else:
+            left_image_rect, right_image_rect = left_image, right_image
 
         # Generar nubes de puntos individuales
-        point_clouds_list, colors_list, keypoints3d_list = generate_individual_filtered_point_clouds(
+        point_clouds_list, colors_list, keypoints3d_list, _ = generate_individual_filtered_point_clouds(
             left_image_rect, right_image_rect, profile, method, use_roi, use_max_disparity, normalize
         )
 
@@ -497,8 +529,8 @@ async def generate_point_cloud_with_features(
     img_right: UploadFile = File(...),
     profile_name: str = Form(...),
     method: str = Form(...),
-    use_max_disparity: bool = Form(default=True),
-    normalize: bool = Form(default=True)
+    use_max_disparity: bool = True,
+    normalize: bool =True
 ):
     """
     Genera nubes de puntos, keypoints 3D y extrae características para cada persona detectada a partir de imágenes estéreo.
@@ -519,16 +551,23 @@ async def generate_point_cloud_with_features(
     """
     try:
         # Leer imágenes cargadas
-        left_image = await read_image_from_upload(img_left)
-        right_image = await read_image_from_upload(img_right)
+        if method != "realsense":
+            left_image = await read_image_from_upload(img_left)
+            right_image = await read_image_from_upload(img_right)
+        else:
+            left_image = await read_image_from_upload(img_left)
+            right_image = await read_image_from_upload(img_right, image_type="depth")
 
-        # Cargar la configuración del perfil
+        # Cargar la configuración del perfil y rectificar las imágenes
         profile = load_profile(profile_name)
         if not profile:
-            raise HTTPException(status_code=404, detail=f"Profile {profile_name} not found")
-        
-        left_image_rect, right_image_rect = rectify_images(left_image, right_image, profile_name)
+            raise HTTPException(status_code=404, detail=f"Perfil {profile_name} no encontrado.")
 
+        if method != "realsense":
+            left_image_rect, right_image_rect = rectify_images(left_image, right_image, profile_name)
+        else:
+            left_image_rect, right_image_rect = left_image, right_image
+        
         # Generar nubes de puntos, colores, keypoints y extraer características
         point_clouds, colors, keypoints, features, max_coords = generate_filtered_point_cloud_with_features(
             left_image_rect, right_image_rect, profile, method, use_roi=False, use_max_disparity=use_max_disparity, normalize=normalize

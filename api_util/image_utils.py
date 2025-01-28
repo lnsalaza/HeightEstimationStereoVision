@@ -4,23 +4,54 @@ import shutil
 import numpy as np
 from glob import glob
 from natsort import natsorted
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile
 
-async def read_image_from_upload(file: UploadFile) -> np.array:
+async def read_image_from_upload(file: UploadFile, image_type: str = "color") -> np.array:
     """
     Lee una imagen desde un archivo subido y la convierte en un array de numpy.
 
     Args:
         file (UploadFile): Imagen subida.
+        image_type (str): Tipo de imagen, puede ser "color" o "depth".
 
     Returns:
         np.array: Imagen como array de numpy.
+
+    Raises:
+        HTTPException: Si la imagen no puede ser decodificada o tiene un formato inválido.
     """
+    # Leer el contenido del archivo
     image_contents = await file.read()
     image_array = np.frombuffer(image_contents, np.uint8)
-    image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+    
+    # Determinar la bandera de lectura según el tipo de imagen
+    if image_type == "color":
+        flag = cv2.IMREAD_COLOR
+    elif image_type == "depth":
+        flag = cv2.IMREAD_UNCHANGED  # Mantiene todos los canales y la profundidad original
+    else:
+        raise HTTPException(status_code=400, detail="Tipo de imagen desconocido. Usa 'color' o 'depth'.")
+    
+    # Decodificar la imagen
+    image = cv2.imdecode(image_array, flag)
+    
+    # Verificar si la decodificación fue exitosa
+    if image is None:
+        raise HTTPException(status_code=400, detail="La imagen no pudo ser decodificada. Verifica el archivo.")
+    
+    # Validaciones adicionales según el tipo de imagen
+    if image_type == "color":
+        if len(image.shape) != 3 or image.shape[2] != 3:
+            raise HTTPException(status_code=400, detail="La imagen de color debe tener 3 canales (BGR).")
+    elif image_type == "depth":
+        # Asumiendo que los mapas de profundidad son de un solo canal
+        if len(image.shape) not in [2, 3] or (len(image.shape) == 3 and image.shape[2] != 1):
+            raise HTTPException(status_code=400, detail="El mapa de profundidad debe tener 1 canal.")
+        # Opcional: verificar el tipo de datos
+        if image.dtype not in [np.uint16, np.float32, np.float64]:
+            raise HTTPException(status_code=400, detail="El mapa de profundidad tiene un tipo de datos inválido.")
+    
     return image
-
 
 def convert_video(input_path: str, output_path: str, codec: str = 'XVID', fps: float = 30.0) -> None:
     """

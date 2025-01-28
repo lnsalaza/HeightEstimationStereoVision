@@ -78,13 +78,13 @@ def compute_disparity(left_image, right_image, config):
     )
 
     # Calcular el mapa de disparidad de la imagen izquierda a la derecha
-    left_disp = stereo.compute(left_image, right_image)#.astype(np.float32) / 16.0 ${PROBAR}
+    left_disp = stereo.compute(left_image, right_image).astype(np.float32) / 16.0 #${PROBAR}
 
     if config['wls_filter']:
         # Crear el matcher derecho basado en el matcher izquierdo para consistencia
         right_matcher = cv2.ximgproc.createRightMatcher(stereo)
         # Calcular el mapa de disparidad de la imagen derecha a la izquierda
-        right_disp = right_matcher.compute(right_image, left_image)#.astype(np.float32) / 16.0 ${PROBAR}
+        right_disp = right_matcher.compute(right_image, left_image).astype(np.float32) / 16.0 #${PROBAR}
 
         # Crear el filtro WLS y configurarlo
         wls_filter = cv2.ximgproc.createDisparityWLSFilter(matcher_left=stereo)
@@ -112,7 +112,8 @@ def disparity_to_pointcloud(disparity, Q, image, custom_mask=None, use_max_dispa
     
     mask = disparity > 0
     if not use_max_disparity:
-        max_disparity_threshold = np.max(disparity) / 2500
+        d_median = np.median(disparity[disparity > 0])
+        max_disparity_threshold = d_median * 0.1
         mask[1:][np.abs(points_3D[1:] - points_3D[:-1])[:, :, 2] > max_disparity_threshold] = False
         mask[:, 1:][np.abs(points_3D[:, 1:] - points_3D[:, :-1])[:, :, 2] > max_disparity_threshold] = False
 
@@ -230,7 +231,7 @@ def generate_filtered_point_cloud(img_l, disparity, Q, camera_type, use_roi=True
             i_list = [i]
             result_image = kp.apply_keypoints_mask(disparity, i_list)
             result_image_list.append(result_image)
-        keypoints3d = get_strutured_kepoints3d(keypoints,disparity, Q)
+        keypoints3d = get_strutured_kepoints3d(keypoints, disparity, Q)
    
         
         #save_image("../images/prediction_results/", result_image, "filtered_keypoints", False)

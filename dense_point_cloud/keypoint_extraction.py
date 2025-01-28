@@ -21,7 +21,7 @@ segmentation = YOLO('yolo11n-seg.pt').to(device=device)  # load an official mode
 
 # Extract results
 def get_keypoints(source):
-    results = pose(source=source, show=False, save = False, conf=0.6)[0]
+    results = pose(source=source, show=True, save = False, conf=0.6)[0]
     keypoints = np.array(results.keypoints.xy.cpu())
     return keypoints
 

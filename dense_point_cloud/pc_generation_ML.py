@@ -45,7 +45,8 @@ def disparity_to_pointcloud(disparity, fx, fy, cx1, cx2, cy, baseline, image, cu
     mask = np.ones((H, W), dtype=bool)
 
     if not use_max_disparity:
-        max_disparity_threshold = np.max(disparity) / 1000
+        d_median = np.median(disparity[disparity > 0])
+        max_disparity_threshold = d_median * 0.1
         mask[1:][np.abs(depth[1:] - depth[:-1]) > max_disparity_threshold] = False
         mask[:, 1:][np.abs(depth[:, 1:] - depth[:, :-1]) > max_disparity_threshold] = False
     else:
@@ -57,6 +58,7 @@ def disparity_to_pointcloud(disparity, fx, fy, cx1, cx2, cy, baseline, image, cu
 
     out_points = points_grid[mask].astype(np.float64)
     out_colors = image[mask].astype(np.float64)
+    
     return out_points, out_colors
 
 

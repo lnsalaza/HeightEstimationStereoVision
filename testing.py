@@ -9,7 +9,7 @@ import plotly.graph_objects as go
 
 import calibration.calibration as cb
 import api_util.profile_management as pm
-from dense_point_cloud.point_cloud import * 
+from dense_point_cloud.point_cloud_alt import * 
 from dense_point_cloud.util import convert_point_cloud_format, convert_individual_point_clouds_format
 from testing_util import convert_to_gray, test_convert_video
 ######################### NEXT FUNCTION ARE JUST FOR TESTING PURPOSES #################################
@@ -203,7 +203,7 @@ def test_filtered_point_cloud_with_features(img_left, img_right, config, method,
     point_cloud_list, color_list, keypoints3d, features, max_coords= generate_filtered_point_cloud_with_features(
         img_left, img_right, config, method, use_roi, use_max_disparity, normalized
     )
-
+    
     # Convertir las nubes de puntos individuales a formato XYZRGB
     convert_individual_point_clouds_format(output_format='xyzrgb')
 
@@ -250,9 +250,12 @@ def test_filtered_point_cloud_with_features(img_left, img_right, config, method,
         viewer.clear_geometries()
         viewer.destroy_window()
 
-    # Mostrar características extraídas
-    for idx, feature in enumerate(features):
-        print(f"Features for Person {idx+1}: {feature}")
+    for persona_id, caracteristicas in features['persons'].items():
+        print(f"Persona {persona_id}:")
+        # Iterar sobre cada clave y valor en las características de la persona
+        for clave, valor in caracteristicas.items():
+            print(f"  {clave}: {valor}")
+        print()  # Línea en blanco para separar cada persona
 
 def test_individual_filtered_point_cloud_with_centroid(img_left, img_right, config, method, use_roi, use_max_disparity, normalized):
     # Generar listas de nubes de puntos y colores para cada objeto detectado
@@ -300,14 +303,15 @@ def test_individual_filtered_point_cloud_with_centroid(img_left, img_right, conf
 
 def test_estimate_height_from_point_cloud(img_left, img_right, config, method, use_roi, use_max_disparity, normalized):
     # Generar listas de nubes de puntos y colores para cada objeto detectado
-    point_cloud_list, color_list, keypoints3d = generate_individual_filtered_point_clouds(
+    point_cloud_list, color_list, keypoints3d, max_coords = generate_individual_filtered_point_clouds(
         img_left, img_right, config, method, use_roi, use_max_disparity, normalized
     )
     i = 0
     for (point_cloud, colors) in zip(point_cloud_list, color_list):
         # Estimar la altura de la persona
         estimated_height, centroid = estimate_height_from_point_cloud(point_cloud=point_cloud, m_initial=100)
-        estimated_height
+
+        
         if estimated_height is not None:
             print(f"Con el centroide {centroid}.\n'Altura estimada de la persona {i+1}: {estimated_height:.2f} unidades")
         else:
@@ -387,7 +391,7 @@ if __name__ == "__main__":
 
     profile_json_path = "./config_files/Cardiff/calibration_data.json"
 
-    test_add_profile(profile_json_path, "Prueba")
+    # test_add_profile(profile_json_path, "Prueba")
 
     # # Cargar las imágenes como arrays
     # img_left = cv2.imread("images/laser/groundTruth/298 y 604/15_22_21_07_06_2024_IMG_LEFT.jpg")
@@ -400,8 +404,8 @@ if __name__ == "__main__":
     # img_right = cv2.imread("images/distances/300/14_06_19_13_05_2024_IMG_RIGHT.jpg")
 
     
-    img_left = cv2.imread("images/distances/300/14_06_13_13_05_2024_IMG_LEFT.jpg")
-    img_right = cv2.imread("images/distances/300/14_06_13_13_05_2024_IMG_RIGHT.jpg")
+    # img_left = cv2.imread("images/distances/300/14_06_13_13_05_2024_IMG_LEFT.jpg")
+    # img_right = cv2.imread("images/distances/300/14_06_13_13_05_2024_IMG_RIGHT.jpg")
 
     # img_left = cv2.imread("images/distances/400/14_07_35_13_05_2024_IMG_LEFT.jpg")
     # img_right = cv2.imread("images/distances/400/14_07_35_13_05_2024_IMG_RIGHT.jpg")
@@ -428,30 +432,39 @@ if __name__ == "__main__":
     # img_right = cv2.imread("../originals/26_9_2024_10_40_32_RIGHT.png")
     
 
+    img_left = cv2.imread("../PC_2025/pc/Stereo/depth/300/15_33_29_11_01_2025_IMG_LEFT.jpg")
+    img_right = cv2.imread("../PC_2025/pc/Stereo/depth/300/15_33_29_11_01_2025_IMG_RIGHT.jpg")
+
     if img_left is None or img_right is None:
         raise FileNotFoundError("Una o ambas imágenes no pudieron ser cargadas. Verifique las rutas.")
 
 
     
     # Cargar configuración desde el archivo JSON
-    config = load_config("profiles/Cardiff.json")
+    config = load_config("profiles/DualLense_no_rotation.json")
     
 
     img_left, img_right = rectify_images(img_left, img_right, config=config['profile_name'])
-    # Asumiendo que queremos usar el método SGBM, ajusta si es WLS-SGBM, RAFT o SELECTIVE según tu configuración
-    method = 'SELECTIVE'
+
+
+    img_left = cv2.imread("../PC_2025/pc/Intel/depth/300/25_01_11_15_30_232691_original.jpg")
+    img_right = cv2.imread("../PC_2025/pc/Intel/depth/300/25_01_11_15_30_232691_depth.png", cv2.IMREAD_UNCHANGED)
+
+
+    # Asumiendo que queremos usar el método SGBM, ajusta si es WLS-SGBM, RAFT, SELECTIVE o realsense según tu configuración
+    method = 'realsense'
 
     # convert_to_gray("./raft_demo_output/output_1.png","./raft_demo_output/gray_output_1.png")
     # convert_to_gray("./seletive_demo_output/output_1.png","./seletive_demo_output/gray_output_1.png")
     # #TEST MAPA DISPARIDAD
-    #test_disparity_map(img_left, img_right, config, method)
-
+    # test_disparity_map(img_left, img_right, config, method)
+    
     # #TEST NUBE DE PUNTOS DENSA
     # test_point_cloud(img_left, img_right, config, method, use_max_disparity=True, normalized=False)
-
+    print("")
 
     # #TEST NUBE DE PUNTOS NO DENSA TOTAL
-    #test_filtered_point_cloud(img_left, img_right, config, method, use_roi=True, use_max_disparity=True)
+    # test_filtered_point_cloud(img_left, img_right, config, method, use_roi=True, use_max_disparity=True)
 
     # #TEST CENTROIDE EN NUBE DE PUNTOS NO DENSA TOTAL
     # test_filtered_point_cloud_with_centroids(img_left, img_right, config, method, use_roi=False, use_max_disparity=True)
@@ -499,7 +512,7 @@ if __name__ == "__main__":
 
 
     #TEST FEATURE EXTRACTION
-    # test_filtered_point_cloud_with_features(img_left, img_right, config, method="RAFT", use_roi=False, use_max_disparity=True, normalized=True)
+    # test_filtered_point_cloud_with_features(img_left, img_right, config, method=method, use_roi=False, use_max_disparity=True, normalized=False)
 
     #TEST HEIGHT FROM FACE
     #test_estimate_height_from_face_proportions(img_left, img_right, config)
